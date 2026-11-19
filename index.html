@@ -886,7 +886,7 @@ const FLAGS = [
  [/\bkind(ly)? (wait|hold)\b|\bhold the line\b/i,"Say \"Bear with me one sec.\""]
 ];
 
-const UNCONTRACTED = /\b(i am|i will|i have|we are|we will|we have|you are|you will|it is|that is|there is|here is|let us|do not|does not|did not|cannot|can not|will not|is not|are not|what is|they are|we would|i would)\b/g;
+const UNCONTRACTED = /\b(i am|i will|we are|we will|you are|you will|it is|that is|there is|here is|let us|do not|does not|did not|cannot|can not|will not|is not|are not|what is|they are)\b/g;
 const CMAP={"i am":"I'm","i will":"I'll","i have":"I've","we are":"we're","we will":"we'll","we have":"we've","you are":"you're","you will":"you'll","it is":"it's","that is":"that's","there is":"there's","here is":"here's","let us":"let's","do not":"don't","does not":"doesn't","did not":"didn't","cannot":"can't","can not":"can't","will not":"won't","is not":"isn't","are not":"aren't","what is":"what's","they are":"they're","we would":"we'd","i would":"I'd"};
 const contract=s=>CMAP[s]||s;
 const UNCONTRACTED_FOLLOWED = new RegExp(UNCONTRACTED.source+"(?=\\s+[a-z])","g");
