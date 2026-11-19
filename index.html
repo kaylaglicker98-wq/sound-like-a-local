@@ -970,7 +970,7 @@ function grade(d, ans){
   if(sirCount>1) flags.push(`You said sir/ma'am ${sirCount} times. Once is enough, or use their first name.`);
   const goalOK = d.goal.every(g=>g.test(low));
   const qOK = !d.q || /\?/.test(a) || /\b(want me to|should i|would|can i|let'?s|i'?ll)\b/i.test(a);
-  const stiffForms = (low.match(UNCONTRACTED_FOLLOWED)||[]).map(s=>s.replace(/\s+\S+$/,""));
+  const stiffForms = (low.match(UNCONTRACTED_FOLLOWED)||[]);
   if(stiffForms.length) flags.push(`Use contractions: "${stiffForms[0]}" sounds stiff. Try "${contract(stiffForms[0])}".`);
   const checks = [
    ["Sounds natural (no off phrases)", flags.filter(f=>!f.startsWith("Use contractions")).length===0, 30],
@@ -1026,13 +1026,13 @@ function voiceAnswer(d){
   $("recBtn").disabled=true; $("fb").innerHTML="";
   runTake("ans", null, R=>{
     $("recBtn").disabled=false; $("recBtn").textContent="🎙️ Try again";
-    if(!R.heard || !R.transcript){ $("fb").innerHTML = R.error==="mic"?`<div class="box warn"><b>Microphone blocked</b>Click the 🔒 or 🎤 icon in Chrome's address bar, allow the microphone, and try again.</div>`:voicePanel({heard:false}); return; }
+    if(!R.heard || !R.transcript){ $("fb").innerHTML = (R.error==="not-allowed"||R.error==="service-not-allowed")?`<div class="box warn"><b>Chrome blocked speech recognition</b>Click the 🔒 icon in the address bar, allow the microphone, reload the page, and try again.</div>`:R.error==="network"?`<div class="box warn"><b>Speech recognition needs internet</b>Chrome sends your voice to Google to turn it into words. Check your connection and try again.</div>`:R.error==="mic"?`<div class="box warn"><b>Microphone blocked</b>Click the 🔒 or 🎤 icon in Chrome's address bar, allow the microphone, and try again.</div>`:voicePanel({heard:false}); return; }
     const g = grade(d, R.transcript);
     showModel(d, g, voicePanel(R,"a"));
     drawPitch($("pc-a"), R.frames, R.med);
     const total = Math.round(g.score*0.5 + R.score*0.5);
     const best=store("csr_best")||{}; best[d.id]=Math.max(best[d.id]||0,total); store("csr_best",best);
-    logAttempt({type:"drill", mode:"voice", drill:d.id, topic:d.topic, lvl:d.lvl, score:total, words:g.score, voice:R.score, clarity:Math.round((R.clarity||0)*100), tone:Math.round(R.toneS*100), wpm:R.wpm, answer:R.transcript, flags:g.flags}, R.audioBlob);
+    logAttempt({type:"drill", mode:"voice", drill:d.id, topic:d.topic, lvl:d.lvl, score:total, words:g.score, voice:R.score, clarity:Math.round((R.clarity||0)*100), tone:R.toneS==null?null:Math.round(R.toneS*100), wpm:R.wpm, answer:R.transcript, flags:g.flags}, R.audioBlob);
   });
 }
 function showModel(d, g, pre){
@@ -1059,7 +1059,7 @@ function showModel(d, g, pre){
     runTake("sh"+i, d.natural[i], R=>{
       b.disabled=false; b.textContent="🎙️ Say it again";
       $("shr-"+i).innerHTML=voicePanel(R,"s"+i); drawPitch($("pc-s"+i),R.frames||[],R.med);
-      if(R.heard) logAttempt({type:"shadow", drill:d.id, topic:d.topic+" (repeat)", score:R.score, voice:R.score, clarity:Math.round((R.clarity||0)*100), tone:Math.round(R.toneS*100), wpm:R.wpm, missed:R.align?R.align.marks.filter(m=>!m[1]).map(m=>m[0]):[], answer:R.transcript, flags:[]}, R.audioBlob);
+      if(R.heard) logAttempt({type:"shadow", drill:d.id, topic:d.topic+" (repeat)", score:R.score, voice:R.score, clarity:Math.round((R.clarity||0)*100), tone:R.toneS==null?null:Math.round(R.toneS*100), wpm:R.wpm, missed:R.align?R.align.marks.filter(m=>!m[1]).map(m=>m[0]):[], answer:R.transcript, flags:[]}, R.audioBlob);
     });
   });
   $("againBtn").onclick=()=>{ $("fb").innerHTML=""; if($("ans")) $("ans").value=""; window.scrollTo({top:0,behavior:"smooth"}); };
@@ -1190,7 +1190,7 @@ function summary(list){
   const flags={}; drills.forEach(x=>(x.flags||[]).forEach(f=>flags[f]=(flags[f]||0)+1));
   const topFlags=Object.entries(flags).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const vs=list.filter(x=>x.voice!=null); const vAvg=vs.length?Math.round(vs.reduce((s,x)=>s+x.voice,0)/vs.length):null;
-  const tAvg=vs.length?Math.round(vs.reduce((s,x)=>s+(x.tone||0),0)/vs.length):null, cAvg=vs.length?Math.round(vs.reduce((s,x)=>s+(x.clarity||0),0)/vs.length):null;
+  const ts=vs.filter(x=>x.tone!=null); const tAvg=ts.length?Math.round(ts.reduce((s,x)=>s+x.tone,0)/ts.length):null, cAvg=vs.length?Math.round(vs.reduce((s,x)=>s+(x.clarity||0),0)/vs.length):null;
   const missed={}; list.forEach(x=>(x.missed||[]).forEach(w=>missed[w]=(missed[w]||0)+1));
   const topMissed=Object.entries(missed).filter(m=>m[0].length>2).sort((a,b)=>b[1]-a[1]).slice(0,10);
   const quizzes=list.filter(x=>x.type==="quiz");
@@ -1242,7 +1242,7 @@ function pitchOf(buf, sr){
   const n = buf.length; let e = 0;
   for(let i=0;i<n;i++) e += buf[i]*buf[i];
   const rms = Math.sqrt(e/n);
-  if(rms < 0.008) return {rms, f:0};
+  if(rms < 0.003) return {rms, f:0};
   const minLag = Math.floor(sr/400), maxLag = Math.floor(sr/70);
   let best = 0, bestLag = 0;
   for(let lag=minLag; lag<=maxLag; lag++){
@@ -1268,13 +1268,16 @@ async function startTake(opts){
     const p = pitchOf(buf, ctx.sampleRate);
     const t = (performance.now()-t0)/1000;
     if(T.frames.length < 10){ T.floor = ((T.floor||0)*T.frames.length + p.rms)/(T.frames.length+1); }
-    const thr = Math.max(0.012, (T.floor||0)*2.5);
+    const thr = Math.max(0.005, (T.floor||0)*2);
     const voiced = T.frames.length >= 10 && p.rms > thr;
     if(voiced){ if(T.firstVoice==null) T.firstVoice = t; T.lastVoice = t; }
     T.frames.push({t, f: voiced ? p.f : 0, v: voiced});
     opts.onUpdate && opts.onUpdate(T);
-    if(T.firstVoice!=null && t - T.lastVoice > 2 && T.lastVoice - T.firstVoice > 0.6) stopTake(T);
-    if(T.firstVoice==null && t > 12) stopTake(T);
+    T.now = t;
+    const spoke = T.firstVoice!=null || T.lastText!=null;
+    const lastAct = Math.max(T.lastVoice!=null?T.lastVoice:-1, T.lastText!=null?T.lastText:-1);
+    if(spoke && t - lastAct > 2 && (T.text||"").trim().length>0) stopTake(T);
+    if(!spoke && t > 15) stopTake(T);
     if(t > 75) stopTake(T);
   }, 50);
   const r = new SR();
@@ -1283,13 +1286,18 @@ async function startTake(opts){
     let interim = "";
     for(let i=e.resultIndex;i<e.results.length;i++){
       const res = e.results[i];
-      if(res.isFinal) T.finals.push({text: res[0].transcript.trim(), conf: res[0].confidence});
+      if(res.isFinal){ T.finals.push({text: res[0].transcript.trim(), conf: res[0].confidence}); T.pending = ""; }
       else interim += res[0].transcript;
     }
-    T.interim = interim; opts.onUpdate && opts.onUpdate(T);
+    T.interim = interim;
+    if(interim.trim()) T.pending = interim.trim();   // keep the last words Chrome showed, even if it never finalizes them
+    const shown = (T.finals.map(f=>f.text).join(" ")+" "+(T.pending||"")).trim();
+    if(shown && shown !== T.text){ T.text = shown; T.lastText = T.now||0; }
+    opts.onUpdate && opts.onUpdate(T);
   };
   r.onerror = e => { T.srError = e.error; };
-  r.onend = () => { if(T.stopped) finishTake(T); else { try{ r.start(); }catch(err){} } };
+  const commit = () => { if(T.pending){ T.finals.push({text:T.pending, conf:0}); T.pending = ""; T.interim = ""; } };
+  r.onend = () => { commit(); if(T.stopped) finishTake(T); else if(T.srError==="not-allowed"||T.srError==="service-not-allowed"){ stopTake(T); } else { setTimeout(()=>{ if(!T.stopped){ try{ r.start(); }catch(err){} } }, 150); } };
   try{ r.start(); }catch(e){ T.srError = "start"; }
   T.r = r; activeTake = T;
   return T;
@@ -1303,7 +1311,10 @@ function stopTake(T){
 function finishTake(T){
   if(T.done) return; T.done = true; activeTake = null;
   T.stream.getTracks().forEach(x=>x.stop()); try{ T.ctx.close(); }catch(e){}
-  if(T.interim && T.interim.trim()) T.finals.push({text:T.interim.trim(), conf:0});
+  if(T.pending){ T.finals.push({text:T.pending, conf:0}); T.pending=""; }
+  // never lose what was on screen
+  const got = T.finals.map(f=>f.text).join(" ").trim();
+  if((T.text||"").length > got.length + 3) T.finals = [{text:T.text, conf:0}];
   T.opts.onDone(analyzeTake(T));
 }
 
@@ -1322,7 +1333,7 @@ function analyzeTake(T){
     const m = v.reduce((a,b)=>a+b,0)/v.length;
     sd = Math.sqrt(v.reduce((a,b)=>a+(b-m)**2,0)/v.length);
   }
-  const speechSec = T.firstVoice!=null ? Math.max(0.5, T.lastVoice - T.firstVoice) : 0;
+  const speechSec = T.firstVoice!=null ? Math.max(0.5, T.lastVoice - T.firstVoice) : (T.lastText!=null ? Math.max(0.5, T.lastText) : 0);
   const wpm = speechSec ? Math.round(wc/speechSec*60) : 0;
   let pauses = 0, gap = null;
   for(const f of T.frames){
@@ -1337,12 +1348,12 @@ function analyzeTake(T){
     align = alignWords(wordsOf(T.opts.expected), wordsOf(transcript));
     clarity = align.total ? align.hit/align.total : 0;
   } else if(conf!=null) clarity = conf;
-  else if(wc) clarity = 0.75;
-  const toneS = clamp01((sd-1.3)/(3.0-1.3));
+  else if(wc) clarity = 0.85;
+  const toneS = st.length > 12 ? clamp01((sd-1.3)/(3.0-1.3)) : null;
   const paceS = wpm===0 ? 0 : (wpm>=125 && wpm<=180) ? 1 : wpm<125 ? clamp01((wpm-75)/50) : clamp01((235-wpm)/55);
   const clarS = clarity==null ? 0 : clamp01((clarity-0.55)/(0.95-0.55));
-  const score = Math.max(0, Math.round((clarS*0.45 + toneS*0.35 + paceS*0.20)*100) - pauses*8);
-  return {transcript, wc, conf, clarity, clarS, sd, toneS, wpm, paceS, pauses, score, frames:T.frames, med, audioUrl, audioBlob, align, error:T.srError, heard: T.firstVoice!=null};
+  const score = Math.max(0, Math.round((toneS==null ? (clarS*0.7 + paceS*0.3) : (clarS*0.45 + toneS*0.35 + paceS*0.20))*100) - pauses*8);
+  return {transcript, wc, conf, clarity, clarS, sd, toneS, wpm, paceS, pauses, score, frames:T.frames, med, audioUrl, audioBlob, align, error:T.srError, heard: T.firstVoice!=null || transcript.length>0};
 }
 // LCS word alignment: which expected words did an American ear hear?
 function alignWords(exp, got0){
@@ -1391,7 +1402,7 @@ function voicePanel(R, idx){
    <div class="card" style="background:var(--bg);margin-top:12px">
     <div class="row"><span class="score" style="color:${R.score>=75?"var(--good)":R.score>=50?"var(--warn)":"var(--bad)"}">${R.score}%</span><span class="muted">voice score</span></div>
     ${meter("🗣️ Clarity", R.clarS, R.align?`An American ear caught ${R.align.hit} of ${R.align.total} words. <span class="miss">Red words</span> weren't understood. Say those again slowly.`:"How sure an American speech recognizer was about your words.")}
-    ${meter("🎵 Tone (not robotic)", R.toneS, toneNote(R.sd))}
+    ${R.toneS==null?`<div class="box warn"><b>🎵 Tone: couldn't measure</b>Your mic is picking you up very quietly. Move closer to it or turn up the mic volume.</div>`:meter("🎵 Tone (not robotic)", R.toneS, toneNote(R.sd))}
     ${meter("⏱️ Pace", R.paceS, paceNote(R.wpm) + (R.pauses?` · ${R.pauses} long pause${R.pauses>1?"s":""} (sounds unsure)`:""))}
     <p style="margin:10px 0 4px"><b>${R.align?"What an American heard:":"What an American heard you say:"}</b></p>
     <div class="box tip" style="margin-top:0">${heardHtml}</div>
@@ -1408,7 +1419,7 @@ async function runTake(prefix, expected, onDone){
   const live = $(prefix+"-live");
   try{
     const T = await startTake({expected,
-      onUpdate: T => { drawPitch($(prefix+"-cv"), T.frames.slice(-120).map(f=>({...f, t:f.t - T.frames[Math.max(0,T.frames.length-120)].t}))); const tx=$(prefix+"-txt"); if(tx) tx.textContent = (T.finals.map(f=>f.text).join(" ")+" "+T.interim).trim(); },
+      onUpdate: T => { drawPitch($(prefix+"-cv"), T.frames.slice(-120).map(f=>({...f, t:f.t - T.frames[Math.max(0,T.frames.length-120)].t}))); const tx=$(prefix+"-txt"); if(tx) tx.textContent = T.text||""; },
       onDone: R => { live && live.classList.add("hide"); onDone(R); }});
     live && live.classList.remove("hide");
     const sb=$(prefix+"-stop"); if(sb) sb.onclick=()=>stopTake(T);
