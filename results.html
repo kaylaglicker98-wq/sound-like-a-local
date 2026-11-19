@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Sound Like a Local — Results</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f5f2;--card:#fff;--ink:#1d1d1f;--muted:#6b6b70;--line:#e4e2dc;--brand:#1f4fa3;--brand-soft:#e8eefa;
+--good:#1d7a46;--good-soft:#e5f4ea;--warn:#a15c00;--warn-soft:#fdf1df;--bad:#b3261e;--bad-soft:#fbe9e7}
+@media (prefers-color-scheme: dark){:root{--bg:#141416;--card:#1e1e21;--ink:#f1f1f3;--muted:#a0a0a8;--line:#2e2e33;--brand:#7ea6f0;--brand-soft:#1f2a40;
+--good:#5cc98a;--good-soft:#16301f;--warn:#f0b35c;--warn-soft:#3a2a12;--bad:#f08a80;--bad-soft:#3a1d1a}}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}
+.wrap{max-width:1100px;margin:0 auto;padding:22px 20px 60px}
+h1{font-size:24px;margin:0}
+.muted{color:var(--muted);font-size:13px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:14px}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 13px;border-radius:10px;font:inherit;font-size:14px;cursor:pointer}
+.btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+select,input{font:inherit;font-size:14px;padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.stat b{display:block;font-size:26px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.csr{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.csr h2{font-size:18px;margin:0}
+.badge{font-weight:700;font-size:20px;padding:4px 12px;border-radius:10px}
+.g{background:var(--good-soft);color:var(--good)} .w{background:var(--warn-soft);color:var(--warn)} .r{background:var(--bad-soft);color:var(--bad)}
+.bar{display:grid;grid-template-columns:72px 1fr 40px;align-items:center;gap:8px;font-size:13px}
+.track{height:8px;background:var(--line);border-radius:99px;overflow:hidden}.track i{display:block;height:100%}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;padding:3px 9px;border-radius:99px;background:var(--bad-soft);color:var(--bad)}
+.chip.n{background:var(--brand-soft);color:var(--brand)}
+.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;margin-bottom:4px}
+.list{font-size:13px;margin:0;padding-left:16px}
+svg.spark{width:100%;height:36px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}
+a{color:var(--brand)}
+.listen{white-space:nowrap;font-weight:600;text-decoration:none}
+.hide{display:none!important}
+.csr.wide{grid-column:1/-1}
+.csr.wide .top{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:800px){.csr.wide .top{grid-template-columns:1fr}}
+.detail{margin-top:6px}
+@media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="row" style="justify-content:space-between">
+    <div><h1>Sound Like a Local — Trainee Results</h1><div class="muted" id="fresh">Loading…</div></div>
+    <div class="row">
+      <select id="period"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="0">All time</option></select>
+      <input id="q" placeholder="Search a CSR…" style="width:170px">
+      <button class="btn" id="refresh">↻ Refresh</button>
+    </div>
+  </div>
+
+  <div class="card hide" id="lock" style="margin-top:16px;max-width:460px">
+    <b>Enter your dashboard password</b>
+    <p class="muted" style="margin:4px 0 10px">You only need to do this once on this computer.</p>
+    <div class="row"><input id="key" type="password" placeholder="Password" style="flex:1"><button class="btn primary" id="go">Open</button></div>
+    <div class="muted" id="lockMsg" style="margin-top:8px"></div>
+  </div>
+
+  <div id="main" class="hide">
+    <div class="stats">
+      <div class="stat"><span class="muted">Trainees practicing</span><b id="sN">–</b></div>
+      <div class="stat"><span class="muted">Answers recorded</span><b id="sA">–</b></div>
+      <div class="stat"><span class="muted">Team average</span><b id="sAvg">–</b></div>
+      <div class="stat"><span class="muted">Most-missed word</span><b id="sWord" style="font-size:20px">–</b></div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+</div>
+
+<script>
+const FEED = "https://script.google.com/macros/s/AKfycbyCxbmQaOMg9jsGqdFne8eMo0A2a7EAcNWeVIEjCl6wkEq3v3Z9mEFOA8VXkwYuia8CZw/exec";
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const getKey = () => { try{ return localStorage.getItem("sl_dash_key")||""; }catch(e){ return ""; } };
+const setKey = k => { try{ localStorage.setItem("sl_dash_key",k); }catch(e){} };
+let rows = [], open = new Set();
+
+async function load(){
+  const key = getKey();
+  if(!key){ $("lock").classList.remove("hide"); $("main").classList.add("hide"); $("fresh").textContent="Locked"; return; }
+  $("fresh").textContent = "Loading…";
+  try{
+    const res = await fetch(FEED + "?key=" + encodeURIComponent(key));
+    const data = await res.json();
+    if(data.error){ setKey(""); $("lockMsg").textContent="That password didn't work. Try again."; $("lock").classList.remove("hide"); $("main").classList.add("hide"); $("fresh").textContent="Locked"; return; }
+    rows = (data.rows||[]).filter(r => r.name && !/^TEST\b/i.test(r.name));
+    $("lock").classList.add("hide"); $("main").classList.remove("hide");
+    $("fresh").textContent = "Updated " + new Date().toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}) + " · refreshes every minute";
+    render();
+  }catch(e){ $("fresh").textContent = "Couldn't reach the Sheet. Check your internet and hit Refresh."; }
+}
+$("go").onclick = () => { setKey($("key").value.trim()); $("lockMsg").textContent=""; load(); };
+$("key").onkeydown = e => { if(e.key==="Enter") $("go").click(); };
+$("refresh").onclick = load; $("period").onchange = render; $("q").oninput = render;
+setInterval(load, 60000);
+
+const num = v => (v===""||v==null||isNaN(+v)) ? null : +v;
+const avg = a => { const v=a.map(num).filter(x=>x!=null); return v.length ? Math.round(v.reduce((s,x)=>s+x,0)/v.length) : null; };
+const cls = v => v==null ? "" : v>=75 ? "g" : v>=55 ? "w" : "r";
+const col = v => v==null ? "var(--line)" : v>=75 ? "var(--good)" : v>=55 ? "var(--warn)" : "var(--bad)";
+const fmt = t => t ? new Date(t).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}) : "–";
+function ago(t){ if(!t) return "never"; const m=(Date.now()-t)/60000; if(m<60) return Math.max(1,Math.round(m))+" min ago"; const h=m/60; if(h<24) return Math.round(h)+" hr ago"; const d=Math.round(h/24); return d===1?"yesterday":d+" days ago"; }
+function bar(label, v, txt){ return `<div class="bar"><span>${label}</span><div class="track"><i style="width:${v==null?0:Math.min(100,v)}%;background:${col(v)}"></i></div><b style="color:${col(v)}">${txt!=null?txt:(v==null?"–":v+"%")}</b></div>`; }
+function counts(list){ const m={}; list.forEach(x=>{ if(x) m[x]=(m[x]||0)+1; }); return Object.entries(m).sort((a,b)=>b[1]-a[1]); }
+function spark(scores){
+  const s = scores.slice(-20); if(s.length<2) return "";
+  const W=300,H=36,step=W/(s.length-1); const y=v=>H-3-(v/100)*(H-6);
+  const pts=s.map((v,i)=>`${(i*step).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="var(--brand)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+function render(){
+  const days = +$("period").value, since = days ? Date.now()-days*864e5 : 0, q = $("q").value.toLowerCase().trim();
+  const list = rows.filter(r => (+r.at||0) >= since);
+  const by = {};
+  list.forEach(r => { const n=String(r.name).trim(); (by[n]=by[n]||[]).push(r); });
+  let names = Object.keys(by).filter(n => !q || n.toLowerCase().includes(q));
+  names.sort((a,b) => Math.max(...by[b].map(r=>+r.at)) - Math.max(...by[a].map(r=>+r.at)));
+
+  const allHard = counts(list.flatMap(r => String(r.hard||"").split(",").map(s=>s.trim()).filter(Boolean)));
+  $("sN").textContent = Object.keys(by).length;
+  $("sA").textContent = list.length;
+  const ta = avg(list.map(r=>r.score)); $("sAvg").textContent = ta==null?"–":ta+"%";
+  $("sWord").textContent = allHard.length ? `"${allHard[0][0]}"` : "–";
+
+  if(!names.length){ $("grid").innerHTML = `<div class="card muted">No results ${days?`in the last ${days} days`:"yet"}${q?` for "${esc(q)}"`:""}.</div>`; return; }
+
+  $("grid").innerHTML = names.map(n => {
+    const rs = by[n].slice().sort((a,b)=>+a.at - +b.at);
+    const spoken = rs.filter(r => num(r.voice)!=null);
+    const total = avg(rs.map(r=>r.score)), clarity = avg(spoken.map(r=>r.clarity)), tone = avg(spoken.map(r=>r.tone)), voice = avg(spoken.map(r=>r.voice));
+    const wpm = avg(spoken.map(r=>r.wpm));
+    const paceScore = wpm==null ? null : (wpm>=125&&wpm<=180 ? 100 : wpm<125 ? Math.max(0,Math.round((wpm-75)*2)) : Math.max(0,Math.round((235-wpm)*1.8)));
+    const fixes = counts(rs.flatMap(r => String(r.fix||"").split(" | ").map(s=>s.trim()).filter(Boolean))).slice(0,3);
+    const hard = counts(rs.flatMap(r => String(r.hard||"").split(",").map(s=>s.trim()).filter(Boolean))).slice(0,8);
+    const drillAvg = {}; rs.filter(r=>r.type!=="Quiz").forEach(r => { (drillAvg[r.drill]=drillAvg[r.drill]||[]).push(r.score); });
+    const weak = Object.entries(drillAvg).map(([d,s])=>[d,avg(s)]).filter(x=>x[1]!=null).sort((a,b)=>a[1]-b[1]).slice(0,3);
+    const last = rs[rs.length-1];
+    const firstHalf = avg(rs.slice(0, Math.floor(rs.length/2)).map(r=>r.score)), secondHalf = avg(rs.slice(Math.floor(rs.length/2)).map(r=>r.score));
+    const trend = (rs.length>=6 && firstHalf!=null && secondHalf!=null) ? (secondHalf-firstHalf>=5 ? `<span style="color:var(--good)">▲ improving</span>` : firstHalf-secondHalf>=5 ? `<span style="color:var(--bad)">▼ slipping</span>` : `<span class="muted">→ steady</span>`) : "";
+    const id = "d-" + btoa(unescape(encodeURIComponent(n))).replace(/[^a-z0-9]/gi,"");
+    const isOpen = open.has(id);
+    return `<div class="csr ${isOpen?"wide":""}">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <div><h2>${esc(n)}</h2><div class="muted">${rs.length} answer${rs.length===1?"":"s"} · last practiced ${ago(+last.at)} ${trend?"· "+trend:""}</div></div>
+        <span class="badge ${cls(total)}">${total==null?"–":total+"%"}</span>
+      </div>
+      ${spark(rs.map(r=>num(r.score)).filter(v=>v!=null))}
+      <div>
+        ${bar("Voice", voice)}
+        ${bar("Clarity", clarity)}
+        ${bar("Tone", tone)}
+        ${bar("Pace", paceScore, wpm==null?"–":wpm+"")}
+      </div>
+      ${fixes.length?`<div><div class="lbl">Keeps saying</div><ul class="list">${fixes.map(f=>`<li>${esc(f[0])} <span class="muted">×${f[1]}</span></li>`).join("")}</ul></div>`:""}
+      ${hard.length?`<div><div class="lbl">Words Americans can't understand</div><div class="chips">${hard.map(h=>`<span class="chip">${esc(h[0])}${h[1]>1?" ×"+h[1]:""}</span>`).join("")}</div></div>`:""}
+      ${weak.length?`<div><div class="lbl">Weakest drills</div><div class="chips">${weak.map(w=>`<span class="chip n">${esc(w[0])} · ${w[1]}%</span>`).join("")}</div></div>`:""}
+      <button class="btn" data-open="${id}">${isOpen?"Hide answers":"See answers & recordings"}</button>
+      <div class="detail ${isOpen?"":"hide"}" id="${id}">
+        <table><thead><tr><th>When</th><th>Drill</th><th>Score</th><th>What they said</th><th></th></tr></thead><tbody>
+        ${rs.slice().reverse().slice(0,40).map(r=>`<tr>
+          <td class="muted">${fmt(+r.at)}</td>
+          <td>${esc(r.drill)}<div class="muted">${esc(r.type)}</div></td>
+          <td><b style="color:${col(num(r.score))}">${num(r.score)==null?"–":r.score+"%"}</b></td>
+          <td>${esc(r.heard)}${r.fix?`<div class="muted" style="color:var(--warn)">${esc(r.fix)}</div>`:""}</td>
+          <td>${r.rec?`<a class="listen" href="${esc(r.rec)}" target="_blank" rel="noopener">▶ Listen</a>`:""}</td></tr>`).join("")}
+        </tbody></table>
+      </div>
+    </div>`;
+  }).join("");
+  document.querySelectorAll("[data-open]").forEach(b => b.onclick = () => {
+    const id=b.dataset.open; if(open.has(id)) open.delete(id); else open.add(id); render();
+    const el=$(id); if(el && !el.classList.contains("hide")) el.closest(".csr").scrollIntoView({behavior:"smooth", block:"start"});
+  });
+}
+load();
+</script>
+</body>
+</html>
