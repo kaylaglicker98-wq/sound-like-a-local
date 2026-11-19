@@ -75,6 +75,12 @@ details summary{cursor:pointer;margin:10px 0}
     <input type="text" id="who" placeholder="First and last name" style="max-width:240px">
     <span class="muted" id="saveState"></span>
   </div>
+  <div class="row" style="margin-bottom:10px">
+    <label class="muted" for="voiceSel">Customer voice:</label>
+    <select id="voiceSel" style="max-width:320px"></select>
+    <button class="btn small" id="voiceTest">🔊 Test</button>
+    <span class="muted" id="voiceHint"></span>
+  </div>
   <nav id="nav">
     <a href="#drills">🎧 Call drills</a>
     <a href="#quiz">✅ Quick quiz</a>
@@ -899,13 +905,29 @@ function browserSpeak(text, rate){
     const s = window.speechSynthesis; if(!s) return;
     s.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    const vs = s.getVoices().filter(v=>/en[-_]US/i.test(v.lang));
-    const pick = vs.find(v=>/Samantha|Google US English|Aria|Jenny|Natural/i.test(v.name)) || vs[0];
+    const pick = chosenVoice();
     if(pick) u.voice = pick;
     u.lang="en-US"; u.rate = rate||1;
     s.speak(u);
   }catch(e){}
 }
+function voiceRank(v){
+  const n=v.name;
+  if(/(Natural|Neural)/i.test(n)) return 0;
+  if(/Online/i.test(n)) return 1;
+  if(/Google US English/i.test(n)) return 2;
+  if(/Samantha|Ava|Allison|Evan|Nathan|Zoe|Joelle/i.test(n)) return 3;
+  return 5;
+}
+function usVoices(){ try{ return speechSynthesis.getVoices().filter(v=>/en[-_]US/i.test(v.lang)).sort((a,b)=>voiceRank(a)-voiceRank(b)||a.name.localeCompare(b.name)); }catch(e){ return []; } }
+function chosenVoice(){ const vs=usVoices(); const saved=store("csr_voice"); return vs.find(v=>v.name===saved) || vs[0] || null; }
+function fillVoicePicker(){
+  const sel=$("voiceSel"); if(!sel) return; const vs=usVoices(); const cur=chosenVoice();
+  if(!vs.length){ sel.innerHTML='<option>Default voice</option>'; return; }
+  sel.innerHTML=vs.map(v=>`<option value="${esc(v.name)}" ${cur&&cur.name===v.name?"selected":""}>${esc(v.name.replace(/^Microsoft /,"").replace(/ - English \(United States\)/,""))}${voiceRank(v)<=1?" ⭐ most natural":voiceRank(v)===2?" (good)":""}</option>`).join("");
+  const best=voiceRank(vs[0]); $("voiceHint").innerHTML = best<=1 ? "" : `Tip: for a much more human voice, open this page in <b>Microsoft Edge</b> and pick a voice marked ⭐.`;
+}
+try{ speechSynthesis.onvoiceschanged = fillVoicePicker; }catch(e){}
 function speak(text, rate){
   text = text.replace(/\$([\d,]+)/g,"$$$1");
   if(tts){ tts.speak(text,{rate:rate||1}).catch(()=>browserSpeak(text,rate)); }
@@ -917,6 +939,10 @@ document.addEventListener("click", e=>{
   speak(b.dataset.say, parseFloat(b.dataset.rate)||1);
 });
 
+/* ---------- voice picker ---------- */
+$("voiceSel").onchange=()=>store("csr_voice",$("voiceSel").value);
+$("voiceTest").onclick=()=>speak("Hi! Yeah, so I'm looking to move at the end of the month. What would something like that run me?");
+setTimeout(fillVoicePicker,300); setTimeout(fillVoicePicker,1500);
 /* ---------- name ---------- */
 $("who").value = store("csr_name") || "";
 $("who").addEventListener("change", ()=>store("csr_name",$("who").value.trim()));
