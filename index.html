@@ -1271,7 +1271,7 @@ async function startTake(opts){
     const thr = Math.max(0.005, (T.floor||0)*2);
     const voiced = T.frames.length >= 10 && p.rms > thr;
     if(voiced){ if(T.firstVoice==null) T.firstVoice = t; T.lastVoice = t; }
-    T.frames.push({t, f: voiced ? p.f : 0, v: voiced});
+    T.frames.push({t, f: voiced ? p.f : 0, v: voiced, rms: p.rms, rf: p.f});
     opts.onUpdate && opts.onUpdate(T);
     T.now = t;
     const spoke = T.firstVoice!=null || T.lastText!=null;
@@ -1292,7 +1292,7 @@ async function startTake(opts){
     T.interim = interim;
     if(interim.trim()) T.pending = interim.trim();   // keep the last words Chrome showed, even if it never finalizes them
     const shown = (T.finals.map(f=>f.text).join(" ")+" "+(T.pending||"")).trim();
-    if(shown && shown !== T.text){ T.text = shown; T.lastText = T.now||0; }
+    if(shown && shown !== T.text){ T.text = shown; T.lastText = T.now||0; if(T.firstText==null) T.firstText = T.now||0; (T.textTimes=T.textTimes||[]).push(T.now||0); }
     opts.onUpdate && opts.onUpdate(T);
   };
   r.onerror = e => { T.srError = e.error; };
@@ -1325,6 +1325,14 @@ function analyzeTake(T){
   const wc = wordsOf(transcript).length;
   const confs = T.finals.filter(f=>f.conf>0).map(f=>f.conf);
   const conf = confs.length ? confs.reduce((a,b)=>a+b,0)/confs.length : null;
+  // Re-decide which frames are speech using the whole recording (quiet parts of a voice count too)
+  const levels = T.frames.map(f=>f.rms||0).sort((a,b)=>a-b);
+  const floor = levels.length ? levels[Math.floor(levels.length*0.15)] : 0;
+  const thr2 = Math.max(0.003, floor*2.2);
+  T.frames.forEach(f => { f.v = (f.rms||0) > thr2; f.f = f.v ? (f.rf||0) : 0; });
+  const vf = T.frames.filter(f=>f.v);
+  const vFirst = vf.length ? vf[0].t : null, vLast = vf.length ? vf[vf.length-1].t : null;
+  if(vFirst!=null){ T.firstVoice = vFirst; T.lastVoice = vLast; }
   const st = T.frames.filter(f=>f.f>0).map(f=>semi(f.f));
   let sd = 0, med = 0;
   if(st.length > 12){
@@ -1333,12 +1341,15 @@ function analyzeTake(T){
     const m = v.reduce((a,b)=>a+b,0)/v.length;
     sd = Math.sqrt(v.reduce((a,b)=>a+(b-m)**2,0)/v.length);
   }
-  const speechSec = T.firstVoice!=null ? Math.max(0.5, T.lastVoice - T.firstVoice) : (T.lastText!=null ? Math.max(0.5, T.lastText) : 0);
+  // Duration = the longer of: time the mic heard speech, or time the words kept appearing (+0.8s for recognizer delay)
+  const voiceSpan = T.firstVoice!=null ? T.lastVoice - T.firstVoice : 0;
+  const textSpan = (T.firstText!=null && T.lastText!=null) ? (T.lastText - T.firstText) + 0.8 : 0;
+  const speechSec = Math.max(0.5, voiceSpan, textSpan);
   const wpm = speechSec ? Math.round(wc/speechSec*60) : 0;
   let pauses = 0, gap = null;
   for(const f of T.frames){
     if(T.firstVoice==null || f.t < T.firstVoice || f.t > T.lastVoice) continue;
-    if(f.v){ if(gap!=null && f.t-gap > 1.3) pauses++; gap = null; } else if(gap==null) gap = f.t;
+    if(f.v){ if(gap!=null && f.t-gap > 1.5){ const g0=gap, g1=f.t; const talking=(T.textTimes||[]).some(x=>x>g0+0.9 && x<g1); if(!talking) pauses++; } gap = null; } else if(gap==null) gap = f.t;
   }
   const audioBlob = T.chunks.length ? new Blob(T.chunks, {type: T.chunks[0].type || "audio/webm"}) : null;
   const audioUrl = audioBlob ? URL.createObjectURL(audioBlob) : null;
