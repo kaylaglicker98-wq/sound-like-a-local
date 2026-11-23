@@ -43,6 +43,20 @@ th{font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:.04
 a{color:var(--brand)}
 .listen{white-space:nowrap;font-weight:600;text-decoration:none}
 .hide{display:none!important}
+.why{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:2px 0 8px}
+.why h4{margin:0 0 6px;font-size:13px}
+.why .sec{margin-top:10px}
+.why ul{margin:4px 0 0;padding-left:0;list-style:none;font-size:13px}
+.why li{margin:3px 0}
+.why .pts{color:var(--bad);font-weight:600;margin-left:4px}
+.why .note{color:var(--muted);font-size:12px;margin-left:22px}
+.why .bx{border-radius:8px;padding:7px 10px;font-size:13px;margin-top:6px}
+.bx.warn{background:var(--warn-soft)} .bx.good{background:var(--good-soft)} .bx.bad{background:var(--bad-soft)}
+.miss{color:var(--bad);text-decoration:underline wavy;font-weight:600}
+.reasons{font-size:13px;margin:4px 0 0;padding-left:18px}
+.whybtn{font-size:12px;padding:3px 9px;margin-top:4px}
+tr.wrow td{border-bottom:1px solid var(--line);padding-top:0}
+
 .csr.wide{grid-column:1/-1}
 .csr.wide .top{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 @media(max-width:800px){.csr.wide .top{grid-template-columns:1fr}}
@@ -85,7 +99,756 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const getKey = () => { try{ return localStorage.getItem("sl_dash_key")||""; }catch(e){ return ""; } };
 const setKey = k => { try{ localStorage.setItem("sl_dash_key",k); }catch(e){} };
-let rows = [], open = new Set();
+let rows = [], open = new Set(), openWhy = new Set();
+
+/* ===== Same drills + grader as the trainee page, so feedback matches exactly ===== */
+const DRILLS = [
+// ---------- LEVEL 1 ----------
+{id:"open", lvl:1, topic:"Opening the call",
+ setup:"New lead, calling in. You don't know their name yet.",
+ cust:"Hi, yeah, um, so my buddy used you guys last year, and I'm trying to figure out if you can even do the end of the month, and like, roughly what it'd run me?",
+ mean:"\"What it'd run me\" = what it would cost. They were referred by a friend, want the end of the month, and want a price. Sound warm and take control.",
+ avoid:"Welcome sir. Kindly tell me your good name and the details of your move.",
+ stiff:"Thank you for calling. I will be happy to assist you with your moving quote. May I have your full name please?",
+ natural:["Oh awesome, glad he sent you our way! I can definitely check the end of the month and get you a real price. Who am I speaking with?","Love that, thanks for calling! Let's find you a date and a price. Can I grab your first name?"],
+ tip:"Americans expect the CSR to sound happy they called. Lead with \"Absolutely\" or \"Of course,\" then ask for their name casually.",
+ goal:[/name|who (am i|do i have)|speaking with/], q:true},
+{id:"thanks", lvl:1, topic:"When they say thank you",
+ setup:"You just answered their question and they thank you.",
+ cust:"Okay, perfect, thanks so much. Honestly you've been way more helpful than the last place I called.",
+ mean:"Just polite. Reply quickly and warmly.",
+ avoid:"Welcome.",
+ stiff:"You are most welcome. It is my pleasure to serve you.",
+ natural:["Aw, that means a lot, thank you! Let's get you all set then.","Of course! Happy to help. Should we go ahead and get you on the schedule?"],
+ tip:"\"Welcome\" by itself sounds like a greeting, not a reply. Say \"Of course,\" \"You got it,\" \"No problem,\" or \"You're welcome.\"",
+ goal:[/means a lot|appreciate|thank you|of course|you'?re welcome|you are welcome|no problem|you got it|anytime|happy to help|my pleasure|sure thing|absolutely/], q:false},
+{id:"repeat", lvl:1, topic:"You didn't catch it",
+ setup:"Customer talks fast. You only caught part of it.",
+ cust:"Yeah it's like a three bed, two bath, with a finished basement, and the garage is kinda packed.",
+ mean:"3 bedrooms, 2 bathrooms, a finished basement, and lots of stuff in the garage.",
+ avoid:"I didn't get you. Repeat again please.",
+ stiff:"I apologize, I could not understand. Can you please repeat the information slowly?",
+ natural:["Sorry, you cut out for a sec. Did you say a three-bedroom with a finished basement?","Okay, a three-bed, two-bath with a finished basement. And the garage is pretty full, you said?"],
+ tip:"Repeat back the part you DID hear as a question. It sounds like you're paying attention, not like you're lost.",
+ goal:[/did you say|you said|so (that'?s|it'?s|you'?ve)|just to make sure|three|3/], q:true},
+{id:"mirror", lvl:1, topic:"Taking inventory: bedroom",
+ setup:"Going room by room.",
+ cust:"So the main bedroom has a dresser with the mirror on top, two nightstands, and a queen bed.",
+ mean:"A dresser that has a mirror attached on top, 2 small bedside tables, and a queen-size bed.",
+ avoid:"Okay, one dress mirror box, two side tables, one queen bed.",
+ stiff:"Noted. Dresser with mirror quantity one, nightstand quantity two, queen bed quantity one.",
+ natural:["Got it: a dresser with the mirror, two nightstands, and a queen bed. Does the mirror come off the dresser, or is it attached?","Perfect. Queen bed, two nightstands, and the dresser with the mirror. Anything else in there, like a TV or a chair?"],
+ tip:"Repeat items back the way THEY said them. Don't use our internal packing names (\"dress mirror box\") with customers. And never list items with \"one…, one…, one…\".",
+ goal:[/dresser/,/nightstand|night stand/], q:true},
+{id:"living", lvl:1, topic:"Taking inventory: living room",
+ setup:"Living room.",
+ cust:"Living room's got a sectional, a loveseat, a big flat-screen, my husband's recliner, and, ugh, this huge armoire that I swear weighs a ton.",
+ mean:"An L-shaped couch, a small 2-person couch, a big TV, a reclining chair, and an armoire (a tall, heavy wooden cabinet). \"Weighs a ton\" = very heavy (not a real ton).",
+ avoid:"Okay, one L-shape sofa, one two-seater, one TV screen, one relax chair.",
+ stiff:"Understood. I have noted one sectional sofa, one loveseat, one television and one recliner.",
+ natural:["Okay, sectional, loveseat, flat-screen, and the recliner. How big is the TV, roughly?","Got it. And the sectional, how many pieces does it come apart into?"],
+ tip:"Use the American words: sectional, loveseat, recliner, flat-screen. Ask ONE follow-up that matters for the estimate.",
+ goal:[/sectional|loveseat|love seat|recliner|tv|flat/], q:true},
+{id:"stairs", lvl:1, topic:"Stairs and access",
+ setup:"Asking about the pickup.",
+ cust:"We're on the third floor, no elevator, and the stairs kind of wrap around. It's an older building.",
+ mean:"They have to carry everything down 2 flights of stairs.",
+ avoid:"So there is no lift and it is the second floor staircase?",
+ stiff:"Okay. So the residence is located on the third floor without elevator access.",
+ natural:["Got it, so a third-floor walk-up. Any tight turns on the stairs we should know about?","Okay, no elevator, third floor. Is it a straight shot up, or does it wind around?"],
+ tip:"Americans say \"elevator,\" not \"lift,\" and \"walk-up\" for a building with no elevator. Count floors the American way: ground level = 1st floor.",
+ goal:[/walk.?up|stairs|flight|floor/], q:true},
+{id:"hold", lvl:1, topic:"Putting them on hold",
+ setup:"You need to check the schedule.",
+ cust:"Sure, go ahead and check, but I've only got like a minute before my next meeting.",
+ mean:"They're fine waiting a little.",
+ avoid:"Kindly hold one minute please.",
+ stiff:"Please hold the line while I check the availability for you.",
+ natural:["Thanks! Super quick, bear with me one sec while I pull that up.","Perfect, I'll be fast. Give me just a second here."],
+ tip:"\"Kindly\" sounds like an old letter. Say \"Bear with me,\" \"Give me one sec,\" or \"Let me pull that up.\" When you come back: \"Thanks for hanging on!\"",
+ goal:[/sec|second|moment|bear with|pull (that|it) up|hang on|hold on|minute/], q:false},
+{id:"thanksgiving", lvl:1, topic:"Small talk",
+ setup:"Customer sounds stressed. It's the week before Thanksgiving.",
+ cust:"Sorry, it's crazy over here, we're getting ready for Thanksgiving.",
+ mean:"They're busy. A little friendly comment builds rapport, then keep it moving.",
+ avoid:"Okay. What is the date of the move?",
+ stiff:"I understand. Happy Thanksgiving to you. Now, can you please provide the move date?",
+ natural:["Oh, I bet! Are you hosting this year?","Ha, that's a busy week. I'll keep this quick so you can get back to it. When are you looking to move?"],
+ tip:"Respond to the human thing first (one line), THEN the business. Skipping it is what makes a call sound robotic.",
+ goal:[/\bbet\b|hosting|busy|quick|\bfun\b|crazy|holiday|thanksgiving|happy|love that|oh no|\bha(ha)?\b/], q:true},
+
+// ---------- LEVEL 2 ----------
+{id:"ballpark", lvl:2, topic:"\"Just give me a ballpark\"",
+ setup:"Customer wants a price before you have any details.",
+ cust:"Can you just give me a ballpark? Like, what's the damage?",
+ mean:"\"Ballpark\" = rough estimate. \"What's the damage?\" = how much will it cost (a joke, not about damage).",
+ avoid:"Sir, the price will be told after the full details only.",
+ stiff:"I cannot provide a price at this time. I need to collect all the information first.",
+ natural:["Totally fair! I'll get you a real number in just a couple minutes. I just need a few quick details so I'm not guessing. Where are you moving from?","Ha, I hear you. Give me two minutes and I'll have an actual price for you, not a guess. What's the address you're moving out of?"],
+ tip:"Never say \"no.\" Say what you WILL do and how fast, then ask your next question right away.",
+ goal:[/minute|couple|quick|real (number|price)|actual|guess/], q:true},
+{id:"price", lvl:2, topic:"Giving the price",
+ setup:"Estimate: 3 men, truck, about 6 hours. Total $1,249. Move date the 14th.",
+ cust:"Okay, so what are we looking at?",
+ mean:"Tell me the price.",
+ avoid:"The total price will be 1249 dollars only.",
+ stiff:"The estimated total cost for your move is one thousand two hundred forty-nine dollars.",
+ natural:["So for everything we went over, three guys, the truck, and all the wrapping and padding, you're looking at about $1,249. Want me to lock in the 14th for you?","Okay! With a three-man crew and the truck, that comes out to about $1,249, and that includes all the furniture pads and shrink wrap. Should I get you on the schedule for the 14th?"],
+ tip:"Remind them what they're getting BEFORE the number, say the number confidently (\"about $1,249,\" never \"only\"), then ask for the booking right away. Don't stop talking after the price.",
+ goal:[/1,?249|twelve forty|price|looking at|comes (out )?to/,/lock|book|schedule|reserve|hold|grab|get you (on|in|down)|secure/], q:true},
+{id:"shopping", lvl:2, topic:"\"I'm shopping around\"",
+ setup:"After you gave the price.",
+ cust:"Okay, I'm just kinda shopping around right now.",
+ mean:"They're getting quotes from other companies. NOT a no.",
+ avoid:"Okay sir, no problem, call us back.",
+ stiff:"I understand. Please feel free to contact us after you compare the prices.",
+ natural:["Makes total sense, it's a big move. Can I ask what's most important to you, the price or making sure nothing gets damaged?","Totally get it. Just so you're comparing apples to apples, make sure the other quotes include the travel and the padding. What else are you weighing?"],
+ tip:"Agree first (\"makes sense\"), then ask a question to keep the conversation going. Never just let them go.",
+ goal:[/sense|get it|totally|understand|fair|of course|absolutely/], q:true},
+{id:"husband", lvl:2, topic:"\"Let me run it by my husband\"",
+ setup:"After the price.",
+ cust:"Let me run it by my husband first and I'll get back to you.",
+ mean:"They need to check with their spouse. Find out if there's a real concern, and protect the date.",
+ avoid:"Okay, kindly call us after you discuss.",
+ stiff:"Okay ma'am. Please discuss with your husband and revert back to us.",
+ natural:["Of course! Is there anything he's going to ask that I can answer for you right now?","Totally. Do you want me to put a soft hold on the 14th so you don't lose the date while you two talk it over?"],
+ tip:"\"Revert back\" and \"kindly\" sound off to Americans. Offer to answer his questions or hold the date.",
+ goal:[/of course|totally|sure|absolutely|makes sense|no problem/], q:true},
+{id:"steep", lvl:2, topic:"\"That's kind of steep\"",
+ setup:"You just gave $1,249.",
+ cust:"Oof, that's kind of steep.",
+ mean:"\"Steep\" = expensive. They're reacting, not hanging up.",
+ avoid:"Okay, I can give you a discount.",
+ stiff:"I apologize for the high price. Our price is fixed according to company policy.",
+ natural:["I hear you, it's not a small number. Let me break down what's in it so you know exactly where it's going. Can I walk you through it real quick?","Yeah, I totally get that. The good news is you're only paying for the time we're actually there. Is it the total that's worrying you, or the hourly rate?"],
+ tip:"Don't apologize for the price and don't offer a discount. Agree with the feeling, then explain the value.",
+ goal:[/hear you|get (that|it)|understand|fair|totally|makes sense/], q:true},
+{id:"booked", lvl:2, topic:"Date is full",
+ setup:"The 30th is fully booked. The 28th and the 1st are open.",
+ cust:"Are you guys booked up for the 30th?",
+ mean:"Do you have availability on the 30th?",
+ avoid:"There is no availability on the 30th.",
+ stiff:"Unfortunately the requested date is not available.",
+ natural:["End of the month goes fast! The 30th is full, but I've got the 28th or the 1st open. Would either of those work?","Ah, the 30th just filled up. I do have the 28th, though. Any chance you could do that?"],
+ tip:"Never stop at \"no.\" Always give the closest open dates in the same sentence.",
+ goal:[/28|twenty.?eighth|1st|first|other|instead|either|open/], q:true},
+{id:"coi", lvl:2, topic:"Building paperwork",
+ setup:"Apartment building in Arlington.",
+ cust:"Oh, and my building needs a COI. Do you guys do that?",
+ mean:"COI = Certificate of Insurance. The building wants proof we're insured.",
+ avoid:"What is COI? Please explain.",
+ stiff:"Yes, we are able to provide the certificate of insurance document upon request.",
+ natural:["Yep, we do those all the time! Just forward me the building's requirements and we'll get it over to them before move day.","Absolutely. If you can send me the management office's email, we'll take care of it."],
+ tip:"Sound like you do it every day. Short and confident. Ask for what you need to get it done.",
+ goal:[/yes|yep|absolutely|of course|all the time|sure|definitely/], q:false},
+{id:"closing", lvl:2, topic:"House closing timing",
+ setup:"Buying a house.",
+ cust:"We close on the 20th, but we might not get the keys until like late afternoon.",
+ mean:"\"Close\" = finish buying the house. They might not be able to get in until late in the day.",
+ avoid:"What do you mean close? The house will be closed?",
+ stiff:"Okay. We will need to schedule according to your key availability.",
+ natural:["Got it, that's super common. We can start in the afternoon, or load in the morning and keep everything on the truck until you've got keys. Which sounds better?","Congrats on the house! That happens a lot. We'll plan around the keys. Do you know roughly what time the closing is?"],
+ tip:"Give two easy options and let them pick. And say congrats on the new house!",
+ goal:[/common|happens|plan|afternoon|morning|congrat/], q:true},
+
+// ---------- LEVEL 3 ----------
+{id:"angry", lvl:3, topic:"Upset customer",
+ setup:"Customer is annoyed.",
+ cust:"I've called three times this week and nobody ever called me back.",
+ mean:"They feel ignored. They need someone to own it.",
+ avoid:"Sorry for the inconvenience sir. Kindly tell me your order number.",
+ stiff:"I apologize for the inconvenience caused. I will escalate this matter to the concerned department.",
+ natural:["Oh no, I'm really sorry, that's not okay. I'm glad you called back, and I'm going to take care of this myself right now. What's the name on the reservation?","Ugh, I'm so sorry. You shouldn't have to chase us down. Let's fix it right now. Can I get your name?"],
+ tip:"Sound like a person, not a policy. \"Sorry for the inconvenience\" and \"concerned department\" make people angrier. Own it: \"I'm going to take care of this.\"",
+ goal:[/sorry/,/i'?ll|i'?m going to|i am going to|let'?s|myself|right now/], q:true},
+{id:"rushed", lvl:3, topic:"Rushed customer",
+ setup:"Customer is in a hurry.",
+ cust:"Look, I've got like two minutes. Can you do Saturday or not?",
+ mean:"Get to the point. Short answers.",
+ avoid:"Sir, first I need to ask you some questions about your move details, then I will check the availability.",
+ stiff:"Yes, Saturday is available. However, I will need some additional information to proceed.",
+ natural:["Yep, Saturday morning's open. Two quick ones so I can hold it: where from, and where to?","I'll be quick! Saturday works. Where are you moving from?"],
+ tip:"Answer their question FIRST in 3–4 words, then ask the shortest question possible.",
+ goal:[/yes|yep|yeah|works|open|saturday/], q:true},
+{id:"neighbor", lvl:3, topic:"Asking for a discount",
+ setup:"After the price.",
+ cust:"My neighbor said you guys gave her 10% off. Can you do that?",
+ mean:"They want a discount.",
+ avoid:"Okay, let me ask my manager for the discount.",
+ stiff:"I am sorry, I am not authorized to provide discounts. Only my manager can do that.",
+ natural:["Ah, that might've been a promo running then. What I can do is make sure the crew size and time are right so you're not paying for anything you don't need. Want me to double-check that with you?","I wish I could! What I can promise is you'll only pay for the time we're actually working. Let's make sure we've got the inventory right so the estimate's tight."],
+ tip:"Don't send it to a manager and don't discount. Be friendly, then move to value.",
+ goal:[/what i can|you'?ll only|make sure|promise|wish/], q:true},
+{id:"accent", lvl:3, topic:"\"You're not from around here\"",
+ setup:"Customer notices your accent.",
+ cust:"Where are you guys located, anyway? You don't sound like you're from around here.",
+ mean:"Just curious. Be honest, friendly, and bring it back to the local crew.",
+ avoid:"Sir, I am from the company. Let's continue with your move.",
+ stiff:"I work for Two Men and a Truck. Our office is located in your area.",
+ natural:["Ha, good ear! I'm on our booking team, but the crews are all local, right out of the Fairfax location. So what part of town are you in?","Haha, nope! I work remotely with our scheduling team, but the guys doing your move are local. Are you moving nearby or out of state?"],
+ tip:"Be honest and laugh it off. Then say the crew is local and ask a question to get the call moving again.",
+ goal:[/\bha(ha)?\b|good ear|remote|local/], q:true},
+{id:"china", lvl:3, topic:"Customer jokes",
+ setup:"Customer makes a joke.",
+ cust:"Just don't drop my grandma's china, haha.",
+ mean:"A joke, but they really are a little worried.",
+ avoid:"Okay, we will not drop.",
+ stiff:"Our movers are trained professionals and handle all items carefully.",
+ natural:["Ha! We'll treat it like it's our own grandma's. And if you want, we can pack the china for you too.","Haha, no pressure! Seriously though, the crew will wrap everything. Do you want us to pack the fragile stuff for you?"],
+ tip:"Laugh with them first (\"Ha!\"), then reassure them. Not laughing at a joke is a big sign of a script.",
+ goal:[/\bha(ha)?\b|grandma|no pressure|promise|treat/], q:false},
+{id:"yes", lvl:3, topic:"Closing: they said yes",
+ setup:"Customer agreed. Collect the deposit.",
+ cust:"Okay, yeah, let's do it.",
+ mean:"They're ready to book. Be excited and make it easy.",
+ avoid:"Okay. Kindly provide the card details for the deposit.",
+ stiff:"Thank you for choosing us. To confirm the reservation, a deposit is required. Please provide your credit card number.",
+ natural:["Awesome! Let's get you locked in. There's a deposit to hold the date, and it goes toward your total. Do you want to use a card?","Yay, perfect! You're going to love the crew. I'll just grab the deposit to hold the 14th. That comes off your final bill. Which card do you want to use?"],
+ tip:"Sound happy they booked. Say the deposit goes toward the total so it doesn't sound like an extra fee.",
+ goal:[/awesome|great|perfect|yay|amazing|love/,/deposit|card|hold|lock/], q:true},
+{id:"spouse2", lvl:3, topic:"\"Not right now\"",
+ setup:"Outbound follow-up call on yesterday's quote.",
+ cust:"Oh, hey, yeah, we're not really ready to book anything right now.",
+ mean:"They might still be undecided, or just busy. Find out which.",
+ avoid:"Okay, thank you for your time, have a nice day.",
+ stiff:"I understand. Please contact us whenever you are ready to proceed with the booking.",
+ natural:["No worries at all! Just so I know, are you still figuring out the date, or is it more the budget?","Totally fine. Can I ask what's holding you back? Sometimes it's something I can fix."],
+ tip:"\"Not right now\" is an objection, not a goodbye. Find out the real reason with one easy question.",
+ goal:[/no worries|totally|fine|of course|no problem|got it/], q:true}
+];
+
+// ---------- MORE TOUGH DRILLS ----------
+DRILLS.push(
+{id:"splitlevel", lvl:2, topic:"Fast inventory dump",
+ setup:"Customer rattles off the whole house in one breath.",
+ cust:"Okay so basically it's a split-level, master's upstairs with a king, the kids' rooms have bunk beds and a trundle, and there's a pull-out in the den, oh and a treadmill.",
+ mean:"Split-level = a house with half-floors. King bed upstairs, bunk beds, a trundle bed (a second bed that slides out from under another), a sofa bed in the den (a small TV/family room), and a treadmill.",
+ avoid:"Sir, please slowly tell me room by room. What is trundle?",
+ stiff:"Okay. I have noted one king bed, bunk beds, a trundle bed, a sofa bed and a treadmill. Is there anything else?",
+ natural:["Okay, I've got the king upstairs, the bunk beds and the trundle, the pull-out in the den, and the treadmill. Does the treadmill fold up, or is it a big one?","Got it. Let me make sure I didn't miss anything: king, bunk beds, trundle, pull-out, treadmill. Are the bunk beds coming apart, or do you want us to take them apart?"],
+ tip:"Don't panic and don't make them repeat everything. Repeat back what you caught in the order they said it, then ask ONE smart follow-up. Learn these words: split-level, trundle, pull-out, den.",
+ goal:[/king/,/treadmill|bunk|trundle|pull.?out/], q:true},
+{id:"nowrap", lvl:2, topic:"\"Just throw it on the truck\"",
+ setup:"Customer is trying to save money.",
+ cust:"Honestly can you guys just throw it all on the truck? I don't need all the fancy wrapping, I just want it cheap.",
+ mean:"They think wrapping costs extra and want the lowest price.",
+ avoid:"No sir, wrapping is mandatory as per company rules.",
+ stiff:"Unfortunately, we are required to wrap all furniture items to prevent damage.",
+ natural:["Ha, totally get it! Good news though: the padding's already included, so it's not costing you anything extra. It's also what keeps your stuff from getting scratched. The fastest way to save is having the small stuff boxed up before we get there.","I hear you! The wrapping's free, it's part of the price, so you're not paying more for it. Want a couple of tips to keep the time down?"],
+ tip:"Agree with the goal (saving money), then show them how the price already includes it. Give them a real way to save instead.",
+ goal:[/included|free|not (costing|paying)|part of|no extra/], q:false},
+{id:"safe", lvl:2, topic:"Heavy items curveball",
+ setup:"Customer adds heavy items at the end.",
+ cust:"Oh, and we've got a Peloton and a gun safe in the basement. That's not gonna be a problem, right?",
+ mean:"A Peloton is a heavy exercise bike. A gun safe can be 300 to 1,000+ pounds, and it's in the basement (stairs!).",
+ avoid:"What is Peloton? And the safe, what is inside?",
+ stiff:"Please provide the weight and dimensions of the safe so we can determine whether it can be moved.",
+ natural:["Good call telling me now! The Peloton's no problem. For the safe, do you know roughly how heavy it is, or how tall? Basements can get tricky with those.","Okay, glad you mentioned it! How big's the safe, like waist-high or taller? And is it a straight shot down the stairs to the basement?"],
+ tip:"Thank them for telling you (it helps the crew), stay calm, and ask the questions that matter: weight/size and the stairs.",
+ goal:[/heavy|weigh|pounds|big|tall|size/], q:true},
+{id:"assisted", lvl:3, topic:"Emotional move",
+ setup:"Moving a parent.",
+ cust:"It's for my mom, she's going into assisted living. It's been a really rough couple of weeks, honestly.",
+ mean:"This is emotional and stressful. They need you to slow down and be human.",
+ avoid:"Okay. What is the address of the assisted living?",
+ stiff:"I understand. We handle many senior moves. Please provide the address of the new facility.",
+ natural:["Oh, I'm so sorry. That's a lot to deal with all at once. We'll make this part as easy as we can for you. Is she taking most of her things, or just a few pieces?","Aw, I'm really sorry, that's never easy. You don't have to figure it all out today. Let's start simple: where's she moving from?"],
+ tip:"Say you're sorry like a person (\"Oh, I'm so sorry\"), slow your voice down, and promise to make it easy. Then ask a gentle question.",
+ goal:[/sorry/,/easy|lot|hard|rough|tough/], q:true},
+{id:"competitor", lvl:3, topic:"\"The other company was half that\"",
+ setup:"After you gave the price.",
+ cust:"Yeah, I got a quote from College Hunks for like half that. So why would I go with you guys?",
+ mean:"They're comparing. They may not be comparing the same thing.",
+ avoid:"Sir, our price is better quality. They are not good company.",
+ stiff:"Our company provides professional and reliable service, which justifies the price difference.",
+ natural:["That's a fair question! Can I ask what they included? A lot of times the lower quote doesn't have the travel, the padding, or enough guys, and it ends up going over. What did they say for the hourly rate and the crew size?","Totally fair to ask. I never knock other companies, but make sure their quote is for the same crew size and time. If it's half, something's probably missing. Do you have their quote in front of you?"],
+ tip:"Never trash the competitor. Ask what was in their quote. Usually it's not apples to apples.",
+ goal:[/fair|good question|totally|understand|get it/,/includ|missing|same|crew|rate|quote/], q:true},
+{id:"hourly", lvl:2, topic:"Hourly or flat rate?",
+ setup:"Customer is price-shopping.",
+ cust:"Wait, so do you guys charge by the hour, or is it like a flat rate? Because I don't wanna get hit with some crazy bill at the end.",
+ mean:"They're scared of a surprise final bill.",
+ avoid:"It is hourly sir. The bill depends on the hours only.",
+ stiff:"Our pricing is based on an hourly rate. The final cost will depend on the actual time spent.",
+ natural:["Great question. It's hourly, so you only pay for the time we're actually working. Based on everything you told me, it should land right around $1,249, and I'll walk you through exactly what could change that so there are no surprises.","Totally get that worry! It's by the hour, but I give you a real estimate up front based on your stuff, so you know what to expect. And if we finish early, you pay less."],
+ tip:"Answer the fear, not just the question. Say \"no surprises\" and explain they only pay for actual time.",
+ goal:[/hour/,/surprise|only pay|pay less|expect|estimate|up front/], q:false},
+{id:"junk", lvl:2, topic:"\"Can you take my old couch to the dump?\"",
+ setup:"Customer has stuff they're not keeping.",
+ cust:"Can the guys also take my old couch and a mattress to the dump on the way? I'm not bringing those.",
+ mean:"They want junk removal too.",
+ avoid:"No, we are moving company, not dump.",
+ stiff:"Our movers do not transport items to the landfill. You will need to arrange that separately.",
+ natural:["We actually have a junk removal team that can take care of that for you! Want me to set that up for the same day so it's all handled?","Oh, good news, we can help with that too. Our junk removal team can grab the couch and mattress. Do you want them out before move day or the same day?"],
+ tip:"Never just say no. If there's another service that solves it, offer it like it's good news.",
+ goal:[/junk|haul|take care|help with/], q:true},
+{id:"florida", lvl:2, topic:"Long distance",
+ setup:"Customer is moving out of state.",
+ cust:"We're moving down to Florida in January. Do you guys even go that far or is it just local?",
+ mean:"Do you do long-distance moves?",
+ avoid:"Yes sir, we go all states. Florida is no problem.",
+ stiff:"Yes, we provide long-distance moving services to Florida.",
+ natural:["We sure do! Florida's a popular one this time of year. Whereabouts are you headed?","Yep, we do long distance all the time! Escaping the cold, huh? What part of Florida?"],
+ tip:"Short confident yes, a little friendly comment (people love talking about Florida in winter), then a question.",
+ goal:[/yes|yep|sure|absolutely|definitely|all the time/], q:true},
+{id:"realtor", lvl:2, topic:"Customer won't be there",
+ setup:"Customer is out of town on move day.",
+ cust:"So I'm actually not gonna be there on move day. My realtor's gonna let you guys in. Is that okay?",
+ mean:"Someone else will let the crew in.",
+ avoid:"No sir, customer must be present.",
+ stiff:"That is acceptable. Please provide your realtor's contact information.",
+ natural:["Yep, that happens a lot, no problem! Can I grab your realtor's name and number so the crew can reach them that morning? And what's the best way to reach you during the move?","Totally fine! Let's just make sure the crew has your realtor's cell, and that you're reachable by phone in case they have a question. What's their name?"],
+ tip:"Make it sound normal, then get what the crew needs: the realtor's name and number, and how to reach the customer.",
+ goal:[/name|number|cell|contact/], q:true},
+{id:"break", lvl:3, topic:"\"What if you break something?\"",
+ setup:"Nervous customer.",
+ cust:"Okay but real talk, what happens if your guys break something? Because the last movers wrecked my dining table.",
+ mean:"They had a bad experience and need to trust you.",
+ avoid:"Our movers will not break anything sir.",
+ stiff:"In the event of damage, you may file a claim with our company.",
+ natural:["Ugh, I'm sorry that happened, that's the worst. Our crew pad-wraps every piece of furniture, and if anything ever does happen, we make it right. Do you want me to go over the coverage options real quick?","Oh no, I'm sorry, that's exactly what you don't want. The guys wrap everything and they're careful with stuff like dining tables. And if something does happen, you're covered and we take care of it."],
+ tip:"Don't promise \"nothing will break.\" Say sorry about the last time, explain how they protect things, and that you make it right.",
+ goal:[/sorry/,/wrap|careful|protect|covered|make it right|take care/], q:false},
+{id:"uhaul", lvl:3, topic:"\"I'll just rent a U-Haul\"",
+ setup:"After the price.",
+ cust:"Eh, honestly I might just rent a U-Haul and get my buddies to help. Pizza and beer, you know?",
+ mean:"They think doing it themselves is cheaper.",
+ avoid:"Okay sir, it is your choice. Thank you for calling.",
+ stiff:"That is an option. However, professional movers provide better service.",
+ natural:["Ha, the pizza and beer move, classic! Honestly, by the time you pay for the truck, gas, and a day of your friends' backs, a lot of people find it's closer than they think. Plus nobody's fighting a sectional up the stairs. Want me to hold the date while you decide?","Haha, totally valid! Just so you know, with us you're not losing a whole weekend or worrying about your buddies dropping the TV. Can I ask what your budget's looking like?"],
+ tip:"Laugh with them, then make them picture the real cost: time, gas, sore backs, damaged stuff. Then keep the call going.",
+ goal:[/\bha(ha)?\b|classic|valid|lol/,/gas|time|weekend|back|budget|drop|hold/], q:true},
+{id:"gold", lvl:3, topic:"Sarcastic price reaction",
+ setup:"You quoted $1,800.",
+ cust:"Eighteen hundred? Wow. What are you guys moving, gold?",
+ mean:"Sarcasm. They think it's expensive. They want you to justify it.",
+ avoid:"No sir, we are moving your furniture.",
+ stiff:"The price is calculated based on the number of movers and estimated hours required.",
+ natural:["Ha! I wish, then I'd charge more! No, but seriously, that's three guys, the truck, all the padding, and about seven hours of work. Want me to break it down so you can see where it's going?","Haha, fair! It's a four-bedroom, so that's a big day. Want me to show you what's in that number?"],
+ tip:"Sarcasm is not literal! Laugh, joke back a little, then explain the value. Answering it literally is a big giveaway.",
+ goal:[/\bha(ha)?\b|fair|wish/,/guys|men|crew|truck|hours|break (it )?down|show you|what'?s in/], q:true},
+{id:"textme", lvl:2, topic:"\"Can you just text me?\"",
+ setup:"Customer is at work.",
+ cust:"Can you just text me the quote? I'm at work and can't really talk right now.",
+ mean:"They're busy. Make it quick but don't lose them.",
+ avoid:"Sir, I need 10 minutes to take all details.",
+ stiff:"Yes. I will send you the quote via text message.",
+ natural:["Totally, I'll text it over! One super quick question so it's accurate: what's your move date?","Yep, no problem! I'll send it now. If the date works for you, just reply and I'll lock it in."],
+ tip:"Say yes, but ask for ONE thing that helps you close (date), or tell them how to book by text.",
+ goal:[/text|send/], q:true},
+{id:"kids", lvl:3, topic:"Chaos in the background",
+ setup:"Kids screaming in the background.",
+ cust:"Hold on, KIDS, STOP IT! Sorry, sorry. What were you saying?",
+ mean:"They lost track. Don't make them feel bad.",
+ avoid:"I was saying the price. Shall I repeat?",
+ stiff:"No problem. I was asking for the address of your new home.",
+ natural:["Ha, no worries at all, sounds like a busy house! I was just asking, where are you moving to?","Haha, been there! All good. Where are you headed to?"],
+ tip:"Laugh it off and make it okay. Then repeat your question in a short, simple way.",
+ goal:[/no worries|all good|\bha(ha)?\b|been there|busy/], q:true},
+{id:"truck", lvl:2, topic:"Customer uses truck lingo",
+ setup:"Customer has moved before.",
+ cust:"So what are we talking, like a 26-footer? Or are you gonna need two trips?",
+ mean:"A 26-foot truck (big truck). They're worried it won't all fit in one trip.",
+ avoid:"I don't know the foot. The operations will decide.",
+ stiff:"The truck size will be determined by our operations team based on your inventory.",
+ natural:["Good question! For everything you told me, one of our big trucks should get it all in one trip. If it ever looks tight, the crew plans for it ahead of time, so no surprises.","Based on your list, one trip should do it. You've got about a three-bedroom's worth, so we'll send a big truck."],
+ tip:"Sound confident. Never say \"operations will decide.\" Answer based on their inventory.",
+ goal:[/trip|truck|fit/], q:false},
+{id:"noon", lvl:2, topic:"Tight deadline",
+ setup:"Customer has a hard deadline.",
+ cust:"We have to be out by noon, the new owners are moving in at like one. Is that doable?",
+ mean:"Everything must be out of the house by 12.",
+ avoid:"Yes, it is possible. Inshallah we will finish.",
+ stiff:"We will try our best to complete the move within the required time.",
+ natural:["Totally doable. Let's get you the first slot of the morning so the guys start early. Do you have most of it packed up already?","Yep! We'll start first thing in the morning. As long as everything's boxed up before we get there, you'll be out with time to spare. Sound good?"],
+ tip:"Sound sure (\"totally doable\"). Never say \"Inshallah\" or \"we'll try.\" Give the plan: early start, be packed.",
+ goal:[/doable|yes|yep|absolutely|first|early|morning/], q:true},
+{id:"contractor", lvl:3, topic:"\"Shouldn't take 3 hours\"",
+ setup:"You estimated 6 hours.",
+ cust:"Six hours? My husband's a contractor, he says it shouldn't take more than three.",
+ mean:"They think your estimate is padded.",
+ avoid:"Sir, your husband is wrong. It will take six hours.",
+ stiff:"Our estimate is based on our experience and standard calculations.",
+ natural:["Ha, I hope he's right, then you'd only pay for three! It's hourly, so you only pay for the time we're actually there. I'd just rather give you a real number than lowball you and surprise you later.","Honestly, that would be great! You only pay for the real time. I base it on the inventory, so I'd rather be honest up front. Want to go over the list to see if anything's not coming?"],
+ tip:"Never say the customer (or their husband) is wrong. Say \"I hope he's right,\" then explain they only pay for actual time.",
+ goal:[/hope|great|only pay|real time|actual/], q:false},
+{id:"military", lvl:3, topic:"Military discount ask",
+ setup:"Customer is in the military.",
+ cust:"I'm active duty Army, do you guys do anything for military?",
+ mean:"They want a military discount.",
+ avoid:"Yes sir, I will give 10% military discount.",
+ stiff:"Thank you for your service. Unfortunately, we do not provide special pricing.",
+ natural:["Oh, thank you for your service! What I can do is make sure the estimate's as tight as possible so you're only paying for exactly what you need. Are you moving because of orders?","Thank you for serving! I'll make sure we get the crew size and time just right so you're not paying a dollar more than you need to. Where are you getting stationed?"],
+ tip:"Thank them warmly, don't give a discount (Kayla's rule), focus on value, and ask a friendly question.",
+ goal:[/thank you|thanks/,/what i can|make sure|only pay|tight|need/], q:true},
+{id:"tentative", lvl:2, topic:"\"Just put me down as tentative\"",
+ setup:"Customer doesn't want to commit.",
+ cust:"Can you just pencil me in for the 14th? Like tentative? I'm not ready to put money down yet.",
+ mean:"\"Pencil me in\" = book it loosely, no deposit.",
+ avoid:"What is pencil? We cannot do tentative sir.",
+ stiff:"Unfortunately, a deposit is required to reserve the date.",
+ natural:["I totally get it! The only thing is the 14th is popular, and without the deposit I can't promise it'll still be open. The deposit goes toward your total anyway. Want to just lock it in so you don't have to worry?","I'd love to! The tricky part is somebody else could grab it. Since the deposit comes off your final bill, a lot of people just lock it in. Should we do that?"],
+ tip:"Agree with how they feel, then explain the risk of losing the date. Remind them the deposit isn't extra money.",
+ goal:[/get it|understand|love to|totally/,/deposit|lock|grab|promise/], q:true},
+{id:"whyyou", lvl:3, topic:"\"Why should I pick you?\"",
+ setup:"Customer is tired of calling around.",
+ cust:"Look, you're like the fourth company I've called today. Just tell me why I should go with you.",
+ mean:"Give me a reason. Be quick and confident.",
+ avoid:"Because we are the best company and our movers are trained.",
+ stiff:"Two Men and a Truck is a reputable company with professional, trained movers and excellent service.",
+ natural:["Totally fair! Short answer: you'll get a real estimate, not a lowball, the guys wrap everything, and you'll have me as your one person to call. What matters most to you?","Ha, I bet you're sick of it by now! Three things: you only pay for actual time, everything's padded and protected, and the crew's local. Does that help?"],
+ tip:"Be short, give 2 to 3 concrete reasons, not \"we're the best.\" Then ask what matters to them.",
+ goal:[/fair|bet|sick|totally|short answer/], q:true},
+{id:"online", lvl:2, topic:"\"I hate talking on the phone\"",
+ setup:"Customer wants to do it online.",
+ cust:"Ugh, I hate talking on the phone. Can I just do this online or something?",
+ mean:"They want it fast and easy.",
+ avoid:"Sir, it is better on the phone. Please continue.",
+ stiff:"You may submit your request through our website. However, it is faster over the phone.",
+ natural:["Ha, totally get that, I'll make it painless! Give me two minutes and you'll have a real price. Where are you moving from?","Same, honestly! I promise this'll be quick, way faster than the website. Just a few questions. What's your move date?"],
+ tip:"Agree, make a promise about time, and get going immediately.",
+ goal:[/quick|minute|painless|fast/], q:true},
+{id:"forgot", lvl:2, topic:"Follow-up call: they forgot",
+ setup:"Outbound follow-up on yesterday's quote.",
+ cust:"Oh, the moving people. Yeah, honestly I kinda forgot about it, it's been a crazy week.",
+ mean:"They're not against you, they're just busy. Re-start the conversation.",
+ avoid:"Sir, I sent you the quote yesterday. Did you not see?",
+ stiff:"I am calling to follow up on the quote I provided yesterday.",
+ natural:["Ha, no worries, I totally get it! I just wanted to make sure you're still good for the 14th, because it's starting to fill up. Do you have a sec to lock it in?","Totally fine, it's a crazy time of year! Quick reminder: you were looking at about $1,249 for the 14th. Still thinking that date?"],
+ tip:"Never make them feel guilty. Make it light, remind them of the key info, and give a reason to act now.",
+ goal:[/no worries|totally|fine|get it/], q:true},
+{id:"longcarry", lvl:2, topic:"Long walk to the truck",
+ setup:"Condo with a far parking lot.",
+ cust:"It's a second-floor condo, but the parking lot's kind of a hike from the door, like you walk past the pool and everything.",
+ mean:"\"A hike\" = a long walk. Long carries add time.",
+ avoid:"We don't hike sir. How many meters?",
+ stiff:"Please specify the exact distance between the parking area and the entrance.",
+ natural:["Got it, good to know! Roughly how far, like a football field or less? And is there an elevator, or is it stairs to the second floor?","Okay, so it's a bit of a walk. That helps me get the time right. Is it about half a block, or longer?"],
+ tip:"Americans measure in feet, blocks, and football fields, not meters. \"A hike\" means a long walk.",
+ goal:[/far|block|football|feet|walk|distance/], q:true},
+{id:"beds", lvl:1, topic:"Taking stuff apart",
+ setup:"Customer asks about beds.",
+ cust:"Do the guys take the beds apart and put them back together, or do I have to do that?",
+ mean:"Disassembly and reassembly.",
+ avoid:"Yes. Assembling and disassembling is done.",
+ stiff:"Our movers will perform the disassembly and reassembly of the beds.",
+ natural:["Yep, the guys take care of that! They'll take the beds apart and set them back up at the new place. How many beds are we talking?","Nope, you don't have to touch them! The crew takes them apart and puts them back together. Any cribs or bunk beds in there too?"],
+ tip:"Short, friendly yes. Then use it to keep taking inventory.",
+ goal:[/yep|yes|take care|don'?t have to|crew|guys/], q:true},
+{id:"lastminute", lvl:2, topic:"Last-minute move",
+ setup:"It's Wednesday.",
+ cust:"Any chance you can do this Saturday? I know, I know, it's super last minute.",
+ mean:"They need it fast and expect a no.",
+ avoid:"Saturday is fully booked. There is no availability.",
+ stiff:"Let me check the schedule. Last-minute requests are subject to availability.",
+ natural:["Ha, no judgment! Let me look. I've got a morning crew open Saturday, but it'll go fast. Want me to grab it for you right now?","Hey, it happens! I've got one spot left Saturday. Let's get you in before someone else takes it. Where are you moving from?"],
+ tip:"Make them feel okay about asking, and if you have a spot, create urgency (\"it'll go fast\").",
+ goal:[/judgment|happens|no worries|\bha(ha)?\b/], q:true},
+{id:"incharge", lvl:3, topic:"\"Let me talk to someone in charge\"",
+ setup:"Customer is frustrated.",
+ cust:"Okay, can I just talk to somebody in charge? Like an actual manager?",
+ mean:"They don't trust that you can fix it.",
+ avoid:"Okay sir, let me transfer you to my manager.",
+ stiff:"I will escalate your concern to my supervisor.",
+ natural:["I totally hear you, and I can absolutely help with this myself. Tell me what's going on and I'll get it fixed right now.","Of course I want to get you the right answer. I can actually take care of this for you. What happened?"],
+ tip:"Don't pass it to a manager. Show them YOU can fix it. Confidence makes them trust you.",
+ goal:[/i can|i'?ll|myself|take care/,/what'?s going on|what happened|tell me/], q:true},
+{id:"late", lvl:3, topic:"Bad experience last time",
+ setup:"A past customer.",
+ cust:"Last time the crew showed up two hours late and nobody even called me. So, yeah, I'm a little nervous.",
+ mean:"They're giving you another chance but don't trust you yet.",
+ avoid:"Sorry sir, that was another crew. This time they will come on time.",
+ stiff:"We apologize for the previous delay. We will ensure that it does not happen again.",
+ natural:["Ugh, I'm really sorry, that's not okay, and I'm glad you told me. Here's what I'll do: I'll put a note on your move, and you'll get a call that morning so you're never left guessing. Does that help?","I'm so sorry that happened. You shouldn't have to wonder where we are. I'm going to make sure the crew calls you when they're on the way. Does that help?"],
+ tip:"Own it (don't blame \"another crew\"), apologize like a person, and give a specific promise you can keep.",
+ goal:[/sorry/,/i'?ll|i'?m going to|make sure|here'?s what/], q:true},
+{id:"bye", lvl:3, topic:"Abrupt goodbye",
+ setup:"Right after the price.",
+ cust:"Okay, cool, I'll think about it. Bye!",
+ mean:"They're trying to leave. You have about 3 seconds.",
+ avoid:"Okay bye, thank you.",
+ stiff:"Thank you for calling Two Men and a Truck. Have a nice day.",
+ natural:["Oh wait, real quick! Before you go, is it the price or the date you're unsure about?","Totally! Hey, just so you know, the 14th's filling up. Want me to hold it for you while you think?"],
+ tip:"Speak fast and friendly to catch them: \"Oh wait, real quick!\" Then ask one easy question.",
+ goal:[/wait|quick|before you go|real quick|just so you know/], q:true},
+{id:"cantunderstand", lvl:3, topic:"\"I can't understand you\"",
+ setup:"Customer is struggling with your accent.",
+ cust:"Sorry, what? Can you say that again? I'm having a really hard time understanding you.",
+ mean:"Slow down, use simple words, and don't get embarrassed.",
+ avoid:"Sir, I said the price is 1249 dollars only. Can you hear me?",
+ stiff:"I apologize. I will repeat the information slowly.",
+ natural:["Oh, sorry about that! Let me slow down. The total is about twelve hundred and fifty dollars.","My bad! I'll go slower. The price is twelve forty-nine for the whole move."],
+ tip:"Say \"My bad\" or \"Sorry about that\" lightly, then say it slower and SIMPLER. Say numbers the American way: \"twelve forty-nine.\"",
+ goal:[/sorry|my bad/,/slow/], q:false},
+{id:"yourname", lvl:2, topic:"\"What's your name again?\"",
+ setup:"Customer wants to call back later.",
+ cust:"What's your name again? I wanna ask for you when I call back.",
+ mean:"They plan to book later. Try to book now.",
+ avoid:"My name is Sam. Thank you, call anytime.",
+ stiff:"My name is Sam. You may ask for me when you call back.",
+ natural:["It's Sam! And honestly, if you want, I can just lock it in now so you don't have to call back at all. Should we do that?","Sam! Ask for me anytime. But hey, since I've got you, want me to hold the 14th so it doesn't get taken?"],
+ tip:"Give your name happily, then try to book now. \"Call back later\" is when a lot of bookings get lost.",
+ goal:[/lock|hold|book|now/], q:true},
+{id:"yonkers", lvl:2, topic:"Old city building",
+ setup:"New York customer.",
+ cust:"It's a pre-war walk-up in Yonkers, fifth floor, and the stairwell's super narrow.",
+ mean:"An old building (built before WWII), no elevator, 5 floors up, tight stairs. This adds lots of time.",
+ avoid:"What is pre-war? Is it a war building?",
+ stiff:"Noted. Fifth floor, no elevator, narrow stairwell.",
+ natural:["Oh, those old Yonkers buildings, gotcha! Fifth-floor walk-up with a narrow stairwell. Are there any big pieces, like a sectional or a big dresser, that we should measure?","Okay, five flights and tight stairs, good to know! That helps me plan the right crew. Anything really big coming down?"],
+ tip:"Pre-war = old building. Show you know the area, repeat back, then ask about big pieces.",
+ goal:[/fifth|five|5|walk.?up|stair|flights/], q:true},
+{id:"multistop", lvl:3, topic:"Multiple stops",
+ setup:"Complicated move.",
+ cust:"So some of my stuff is in a storage unit in Manassas, some of it goes to my new place in Arlington, and a couple pieces go to my daughter's in Herndon.",
+ mean:"Three stops: pick up at storage (Manassas), drop at Arlington and Herndon.",
+ avoid:"Sir, too many places. Please explain again.",
+ stiff:"Okay. Pickup from storage in Manassas, delivery to Arlington and Herndon.",
+ natural:["Okay, no problem! So we're picking up at the storage unit in Manassas, then dropping most of it in Arlington and a couple pieces at your daughter's in Herndon. Which pieces go to Herndon?","Got it, three stops. Storage in Manassas, then Arlington, then Herndon. Is the storage unit indoor, or a drive-up?"],
+ tip:"Repeat the route back in order so they know you got it. Pronounce the towns right (muh-NASS-us).",
+ goal:[/manassas/,/arlington/,/herndon/], q:true},
+{id:"snowbird", lvl:3, topic:"\"Give us a deal for both\"",
+ setup:"Snowbirds moving twice a year.",
+ cust:"We're snowbirds, so we go down every fall and come back up in spring. If we book both, can you cut us a deal?",
+ mean:"They want a discount for two moves.",
+ avoid:"Yes, I will give discount for both moves.",
+ stiff:"Unfortunately, we are unable to offer reduced pricing for multiple bookings.",
+ natural:["Oh, love that, the best of both worlds! What I can do is get both dates locked in now so you're not scrambling in the spring, and make sure each one's estimated tight. When are you heading back up?","Ha, living the dream! I'll make it super easy for you: let's book the spring move now too, so you've got the same team handling both. What month are you thinking?"],
+ tip:"Snowbirds = people who spend winter in Florida. Be happy for them, don't discount, sell the convenience.",
+ goal:[/love|dream|best of|nice|\bha(ha)?\b/,/lock|book|both|spring/], q:true},
+{id:"widow", lvl:3, topic:"Very emotional customer",
+ setup:"Customer is grieving.",
+ cust:"My husband passed in the spring and I'm selling the house. I just... I can't deal with all of this.",
+ mean:"She is overwhelmed and grieving. Be gentle and take the work off her plate.",
+ avoid:"Sorry for your loss. What is the date of the move?",
+ stiff:"I'm sorry for your loss. We can assist you with your moving needs.",
+ natural:["Oh, I'm so sorry. That's so much to carry. You don't have to figure it all out right now. We can handle a lot of it for you, even the packing. Can I ask, is anyone helping you with the house?","I'm so, so sorry. Let's take this one step at a time, and I'll do the heavy lifting. Where are you moving to?"],
+ tip:"Slow way down. Don't rush to the business question. Offer to take things off her plate (packing). Warm, quiet voice.",
+ goal:[/sorry/,/one step|don'?t have to|handle|take care|help|heavy lifting/], q:true},
+{id:"difference", lvl:2, topic:"Estimate vs. final bill",
+ setup:"Customer is confused.",
+ cust:"Hang on, so what's the difference between the estimate and what I'll actually end up paying?",
+ mean:"Will the price change?",
+ avoid:"Estimate is estimate. Final bill is final.",
+ stiff:"The estimate is an approximation. The final invoice will reflect the actual hours worked.",
+ natural:["Great question! The estimate is our best guess based on your list. Since it's hourly, the final bill is the actual time. If you're packed and ready, it usually comes in right around the estimate.","So the estimate's what I expect it to be, based on what you told me. The final is the real time. If we finish early, you pay less. If you add stuff, it can go up. Make sense?"],
+ tip:"Explain it like you're talking to a friend, in two or three short sentences, and tell them how to keep it low.",
+ goal:[/actual|real time|pay less|hourly/], q:false},
+{id:"travel", lvl:3, topic:"Travel charge pushback",
+ setup:"Customer questions the travel charge.",
+ cust:"Why is there a travel charge? I'm literally like ten minutes from your office.",
+ mean:"They think the fee is unfair.",
+ avoid:"It is company policy sir. Everyone pays travel charge.",
+ stiff:"The travel charge is a standard fee applied to all moves.",
+ natural:["Totally fair question! The travel charge covers the truck and the crew getting to you and back, plus the gas. It's one flat amount, so you're not paying hourly for drive time. Does that make sense?","I get it! Instead of charging you by the hour while the guys drive, it's one set fee for getting the truck there and back."],
+ tip:"Never say \"company policy.\" Explain what it pays for and why it's actually better for them.",
+ goal:[/fair|get it|good question|totally/,/truck|gas|drive|getting (to you|there)/], q:false},
+{id:"cash", lvl:3, topic:"\"Cash for a lower price?\"",
+ setup:"Customer tries a side deal.",
+ cust:"If I pay cash, can you knock a little off? Like, between us?",
+ mean:"They want a discount for cash.",
+ avoid:"Okay sir, I will ask my manager about cash discount.",
+ stiff:"I'm sorry, but we cannot offer a reduced price for cash payment.",
+ natural:["Ha, I wish I could! The price is the same however you pay. What I can do is make sure the time's estimated just right so you're not overpaying. Sound good?","Haha, I like the way you think! It's the same rate either way, but I promise you're only paying for actual time."],
+ tip:"Laugh lightly, say no without saying \"no,\" and move to value.",
+ goal:[/wish|like the way|\bha(ha)?\b/,/same/], q:false},
+{id:"couchupstairs", lvl:2, topic:"Tiny job",
+ setup:"Small labor-only job.",
+ cust:"I literally just need two guys for like an hour to move a couch upstairs. Is that even something you do?",
+ mean:"A very small job. They're not sure you'll take it.",
+ avoid:"Yes we do. Minimum is 2 hours only.",
+ stiff:"Yes, we provide labor-only services. Please note there is a minimum charge.",
+ natural:["Yep, we sure do! Just so you know upfront, there's a minimum, so it'll be a little more than an hour's worth. Is there anything else you want moved while the guys are there, to make it worth it?","Absolutely! Since there's a minimum anyway, a lot of people have the guys move a couple other things too. Anything else you've been wanting moved?"],
+ tip:"Say yes happily, explain the minimum honestly, then upsell: \"anything else while they're there?\"",
+ goal:[/yep|yes|absolutely|sure/,/anything else|other|couple/], q:true},
+{id:"bookingservice", lvl:3, topic:"\"Are you a booking service?\"",
+ setup:"Customer is suspicious.",
+ cust:"Wait, are you actually Two Men and a Truck, or is this one of those booking services that sells my info?",
+ mean:"They're worried this is a scam.",
+ avoid:"No sir, we are real company, don't worry.",
+ stiff:"I can confirm that you have reached Two Men and a Truck.",
+ natural:["Ha, good question, there are a lot of those out there! Yes, this is Two Men and a Truck, and your crew comes right out of our local location. Your info stays with us.","Totally smart to ask! Yep, you're talking to Two Men and a Truck directly. No middleman, the guys are local."],
+ tip:"Don't sound defensive. Praise them for asking, then answer clearly and confidently.",
+ goal:[/good question|smart|fair|\bha(ha)?\b/,/two men|directly|local/], q:false},
+{id:"blackfriday", lvl:2, topic:"Holiday availability",
+ setup:"Thanksgiving week.",
+ cust:"Do you guys work the Friday after Thanksgiving? That's the only day my brother can help.",
+ mean:"Black Friday move. Their brother is helping (maybe with packing or unloading).",
+ avoid:"I don't know. I will check with operations if it is holiday.",
+ stiff:"Let me verify our holiday schedule and availability.",
+ natural:["Let me pull it up! Black Friday's a popular one since people are off. Looks like I've got a spot. Want me to grab it?","Good thinking, a lot of people move that day! Bear with me one sec. Okay, I can get you in that morning. Should I lock it in?"],
+ tip:"Know the holidays (\"Black Friday\"), sound like you know it's a busy day, and close.",
+ goal:[/pull|bear with|sec|look/], q:true}
+);
+
+// Phrase swaps
+const FLAGS = [
+ [/\bdress(er)?\s*mirror\s*box/i,"\"dress mirror box\" is our internal name. Say \"the mirror on the dresser.\""],
+ [/\bkindly\b/i,"Drop \"kindly.\" Say \"Could you…\" or \"Bear with me.\""],
+ [/\bdo the needful\b/i,"Say \"take care of it.\""],
+ [/\brevert\b/i,"Say \"get back to you.\""],
+ [/^\s*(you are )?welcome[.!]?\s*$/i,"\"Welcome\" alone sounds like a greeting. Say \"Of course!\" or \"You got it!\""],
+ [/\bgood name\b/i,"Say \"Who am I speaking with?\""],
+ [/\bserve you\b/i,"Say \"help you.\""],
+ [/^\s*(please )?tell me\b/i,"\"Tell me\" sounds like an order. Try \"Go ahead!\""],
+ [/\bi didn'?t get you\b/i,"Say \"Sorry, say that one more time?\""],
+ [/\b(okay|ok)[ ,.]+(okay|ok)\b|\byes[ ,.]+yes\b/i,"Say it once: \"Got it.\""],
+ [/\bdo one thing\b/i,"Say \"Here's what I'll do.\""],
+ [/\$?\d[\d,]*\s*(dollars?)?\s+only\b/i,"Drop \"only\" after a price."],
+ [/\blift\b/i,"Americans say \"elevator.\""],
+ [/\bflat\b(?![- ]?(screen|rate|fee|amount|price))/i,"Americans say \"apartment.\""],
+ [/\bground floor\b/i,"In the US that's the \"first floor.\""],
+ [/\bstairs case\b/i,"Say \"stairs\" or \"flights of stairs.\""],
+ [/\b(two|2|three|3)[- ]?seater\b/i,"Say \"loveseat\" (2) or \"sofa/couch\" (3)."],
+ [/\bl[- ]?shape(d)?\b/i,"Say \"sectional.\""],
+ [/\bwashing machine\b/i,"Say \"washer.\""],
+ [/\bcooker\b/i,"Say \"stove.\""],
+ [/\bcupboard\b/i,"Say \"closet\" or \"cabinet.\""],
+ [/\binshallah\b|\bgod willing\b/i,"Say \"hopefully.\""],
+ [/\bwith pleasure\b/i,"Say \"Happy to help!\""],
+ [/\bdear\b/i,"Use their first name instead of \"dear.\""],
+ [/\bmadam\b/i,"Use their first name."],
+ [/\binconvenience\b/i,"Sounds like a policy. Say \"I'm really sorry about that.\""],
+ [/\bconcerned (department|team)\b|\bescalate\b/i,"Sounds like a call center. Say \"I'll take care of it.\""],
+ [/\bdiscount\b/i,"No discounts. Talk about value instead."],
+ [/\b(ask|check with|talk to) (my |the )?(manager|supervisor|operations|team leader)\b/i,"Don't send it to a manager on the call. Handle it yourself."],
+ [/\bnot authori[sz]ed\b|\bcompany policy\b/i,"Sounds robotic. Explain it like a person."],
+ [/\bplease provide\b/i,"Sounds like a form. Say \"Can I grab…\""],
+ [/\bquantity\b/i,"Don't read inventory like a list. Repeat it back naturally."],
+ [/\bone (\w+ ){0,2}(box|table|bed|sofa|chair)[,.]? one\b/i,"Don't list items as \"one…, one…, one…\". Repeat them back naturally."],
+ [/\bthe customer\b/i,"Talk to them, not about them: say \"you.\""],
+ [/\bresidence\b/i,"Say \"place\" or \"house.\""],
+ [/\bproceed\b/i,"Formal. Say \"go ahead\" or \"get you booked.\""],
+ [/\bassist\b/i,"Say \"help.\""],
+ [/\b(okay|ok|yes|no|sorry|thank you|thanks|hello) sir\b|^\s*sir\b|[.!?]\s+sir\b/i,"Starting with \"Sir\" sounds scripted. Use their first name."],
+ [/\bshall\b/i,"\"Shall I\" sounds old-fashioned. Say \"Want me to…?\""],
+ [/\bthe operations\b|operations (will|team will|is going to) (decide|determine)/i,"Don't hand it to operations. Answer confidently yourself."],
+ [/\bmeters?\b|\bkilos?\b|\bkm\b/i,"Americans use feet, blocks and pounds, not meters or kilos."],
+ [/\bis done\b/i,"Sounds like a manual. Say \"The guys take care of that.\""],
+ [/\bas per\b/i,"\"As per\" sounds like a contract. Rephrase it simply."],
+ [/\bkind(ly)? (wait|hold)\b|\bhold the line\b/i,"Say \"Bear with me one sec.\""]
+];
+
+const UNCONTRACTED = /\b(i am|i will|we are|we will|you are|you will|it is|that is|there is|here is|let us|do not|does not|did not|cannot|can not|will not|is not|are not|what is|they are)\b/g;
+const CMAP={"i am":"I'm","i will":"I'll","i have":"I've","we are":"we're","we will":"we'll","we have":"we've","you are":"you're","you will":"you'll","it is":"it's","that is":"that's","there is":"there's","here is":"here's","let us":"let's","do not":"don't","does not":"doesn't","did not":"didn't","cannot":"can't","can not":"can't","will not":"won't","is not":"isn't","are not":"aren't","what is":"what's","they are":"they're","we would":"we'd","i would":"I'd"};
+const contract=s=>CMAP[s]||s;
+const UNCONTRACTED_FOLLOWED = new RegExp(UNCONTRACTED.source+"(?=\\s+[a-z])","g");
+
+const norm = s => String(s||"").replace(/[’‘]/g,"'");
+const clamp01 = x => Math.max(0, Math.min(1, x));
+const DBY = {}; DRILLS.forEach(d => DBY[d.topic] = d);
+function grade(d, ans){
+  const a = norm(String(ans||"").trim()); const low=a.toLowerCase();
+  const words = a.split(/\s+/).filter(Boolean);
+  const sentences = a.split(/[.!?]+/).map(s=>s.trim()).filter(Boolean);
+  const maxS = Math.max(0,...sentences.map(s=>s.split(/\s+/).length));
+  const flags = FLAGS.filter(f=>f[0].test(a)).map(f=>f[1]);
+  const sirCount = (low.match(/\bsir\b|\bma'?am\b/g)||[]).length;
+  if(sirCount>1) flags.push(`You said sir/ma'am ${sirCount} times. Once is enough, or use their first name.`);
+  const goalOK = d.goal.every(g=>g.test(low));
+  const qOK = !d.q || /\?/.test(a) || /\b(want me to|should i|would|can i|let'?s|i'?ll)\b/i.test(a);
+  const stiffForms = (low.match(UNCONTRACTED_FOLLOWED)||[]);
+  if(stiffForms.length) flags.push(`Use contractions: "${stiffForms[0]}" sounds stiff. Try "${contract(stiffForms[0])}".`);
+  const checks = [
+   ["Sounds natural (no off phrases)", flags.filter(f=>!f.startsWith("Use contractions")).length===0, 30],
+   ["Uses contractions (I'll, we're, that's…)", stiffForms.length===0, 15],
+   ["Short and easy to follow", words.length>0 && maxS<=30 && words.length<=70, 10],
+   ["Handles this moment the right way", goalOK, 30],
+   [d.q ? "Keeps the call moving (asks a question or next step)" : "Friendly and quick", d.q ? qOK : words.length<=55, 15]
+  ];
+  let raw = checks.reduce((s,c)=>s+(c[1]?c[2]:0),0), score=raw, capped=false;
+  if(flags.length && score>60){ score=60; capped=true; }
+  return {score, raw, capped, checks, flags, words:words.length, maxS};
+}
+function wordsOf(s){ return norm(s).toLowerCase().replace(/\$/g,"").replace(/[^a-z0-9' ]+/g," ").split(/\s+/).filter(Boolean); }
+function alignWords(exp, got0){
+  const ex=new Set(exp), got=[];
+  for(let k=0;k<got0.length;k++){ const j=got0[k]+(got0[k+1]||""); if(got0[k+1] && (ex.has(j)||ex.has(j+"s")) && !ex.has(got0[k])){ got.push(j); k++; } else got.push(got0[k]); }
+  const n=exp.length, m=got.length, L=Array.from({length:n+1},()=>new Array(m+1).fill(0));
+  const base=w=>w.replace(/'/g,"").replace(/(es|s)$/,""); const eq=(a,b)=> a===b || base(a)===base(b);
+  for(let i=n-1;i>=0;i--) for(let j=m-1;j>=0;j--) L[i][j] = eq(exp[i],got[j]) ? L[i+1][j+1]+1 : Math.max(L[i+1][j], L[i][j+1]);
+  const marks=[]; let i=0,j=0;
+  while(i<n){ if(j<m && eq(exp[i],got[j])){ marks.push([exp[i],true]); i++; j++; } else if(j<m && L[i][j+1]>=L[i+1][j]) j++; else { marks.push([exp[i],false]); i++; } }
+  return {marks, hit:marks.filter(x=>x[1]).length, total:n};
+}
+function goalHint(d){
+  const t=d.goal.map(g=>g.source).join(" + ");
+  return t;
+}
+const toneNote = s => s==null ? null : s<=0.001 ? "Very flat. This is what sounds robotic. Let your voice go up and down like you're excited." : s<0.53 ? "A little flat. Stress the important words more (\"absolutely,\" \"the fourteenth\")." : "Nice. Your voice moves up and down naturally.";
+const paceNote = w => !w ? "Couldn't measure." : w<110 ? `${w} words/min: too slow. Americans on the phone talk about 140–170.` : w>195 ? `${w} words/min: too fast. Slow down a little, especially on prices and dates.` : `${w} words/min: good phone pace.`;
+const pc = v => `<b style="color:${col(v)}">${v}%</b>`;
+
+/* Rebuilds the exact feedback the trainee saw on the page for one answer */
+function why(r){
+  const type = String(r.type||""), d = DBY[String(r.drill||"").replace(/ \(repeat\)$/,"")];
+  if(/quiz/i.test(type)) return `<div class="why"><h4>Quick quiz</h4>They got <b>${esc(r.heard)}</b> right. The page told them: ${num(r.score)>=80?"\"Great ear! 🎉\"":"\"Keep going. Do the call drills for the ones you missed.\""}</div>`;
+  if(!d) return `<div class="why muted">This drill isn't on the practice page anymore, so I can't rebuild its feedback.</div>`;
+  const spoken = /spoken/i.test(type), typed = /typed/i.test(type), repeat = /repeat/i.test(type);
+  const reasons = []; let out = "";
+
+  // ---- word choice (spoken + typed answers)
+  if(spoken || typed){
+    const g = grade(d, r.heard), stored = num(spoken ? r.words : r.score);
+    g.checks.forEach(c => { if(!c[1]) reasons.push([c[2], `<b>${esc(c[0])}</b> <span class="pts">−${c[2]}</span>`]); });
+    if(g.capped) reasons.push([g.raw-60, `<b>Capped at 60%</b> because something showed up under "Change these" <span class="pts">−${g.raw-60}</span>`]);
+    const msg = g.score>=80?"Nice, that sounds natural!":g.score>=60?"Close. Fix the ❌ items.":"Read the natural versions out loud and try again.";
+    out += `<div class="sec"><h4>Word choice: ${pc(g.score)} <span class="muted" style="font-weight:400">· page said "${msg}"</span></h4>
+      ${stored!=null && stored!==g.score?`<div class="muted" style="font-size:12px">They were scored ${stored}% at the time; the drill has been tweaked since, so this is how it grades today.</div>`:""}
+      <ul>${g.checks.map(c=>{
+        let note="";
+        if(!c[1]){
+          if(c[0].startsWith("Handles")) note = `Didn't hit what this moment needs. ${esc(d.tip)}`;
+          else if(c[0].startsWith("Short")) note = `${g.words} words, longest sentence ${g.maxS} words (max 70 words / 30 per sentence).`;
+          else if(c[0].startsWith("Keeps")) note = "No question or next step at the end.";
+          else if(c[0].startsWith("Friendly")) note = `${g.words} words. Keep it under 55.`;
+        }
+        return `<li>${c[1]?"✅":"❌"} ${esc(c[0])}${c[1]?"":`<span class="pts">−${c[2]}</span>`}${note?`<div class="note">${note}</div>`:""}</li>`;}).join("")}</ul>
+      ${g.flags.length?`<div class="bx warn"><b>Change these</b><br>${g.flags.map(esc).join("<br>")}</div>`:""}
+    </div>`;
+  }
+
+  // ---- voice (spoken answers + repeats)
+  if(spoken || repeat){
+    const c = num(r.clarity), t = num(r.tone), w = num(r.wpm), v = num(r.voice);
+    let clarS = c==null?0:clamp01((c/100-0.55)/0.4);
+    const toneS = t==null?null:t/100;
+    const paceS = !w?0:(w>=125&&w<=180)?1:w<125?clamp01((w-75)/50):clamp01((235-w)/55);
+    let align = null;
+    if(repeat){ let best=null; d.natural.forEach(n=>{ const a=alignWords(wordsOf(n),wordsOf(r.heard)); if(!best||a.hit/a.total>best.hit/best.total) best=a; }); align=best; }
+    const base = Math.round((toneS==null ? (clarS*0.7+paceS*0.3) : (clarS*0.45+toneS*0.35+paceS*0.20))*100);
+    const pauses = v==null?0:Math.max(0,Math.round((base-v)/8));
+    const cP=Math.round(clarS*100), pP=Math.round(paceS*100);
+    if(cP<75) reasons.push([toneS==null?(100-cP)*0.7:(100-cP)*0.45, `<b>Clarity ${cP}%</b>: Americans couldn't make out all their words`]);
+    if(toneS!=null && t<75) reasons.push([(100-t)*0.35, `<b>Tone ${t}%</b>: ${toneS<=0.001?"very flat, robotic":"a little flat"}`]);
+    if(toneS==null) reasons.push([20, `<b>Tone couldn't be measured</b>: mic too quiet`]);
+    if(pP<75) reasons.push([(100-pP)*(toneS==null?0.3:0.2), `<b>Pace</b>: ${w} words/min (${w<125?"too slow":"too fast"})`]);
+    if(pauses) reasons.push([pauses*8, `<b>${pauses} long pause${pauses>1?"s":""}</b> (sounds unsure) <span class="pts">−${pauses*8}</span>`]);
+    const heardHtml = align ? align.marks.map(([x,ok])=>ok?esc(x):`<span class="miss">${esc(x)}</span>`).join(" ") : (esc(r.heard)||"<i>(nothing understood)</i>");
+    out += `<div class="sec"><h4>Voice: ${v==null?"–":pc(v)}</h4><ul>
+      <li>🗣️ Clarity ${pc(cP)}<div class="note">${align?`An American ear caught ${align.hit} of ${align.total} words. Red words weren't understood.`:"How sure an American speech recognizer was about their words."}</div></li>
+      <li>🎵 Tone ${toneS==null?"<b>couldn't measure</b>":pc(t)}<div class="note">${toneS==null?"Their mic picked them up very quietly. Move closer or turn up the mic volume.":toneNote(toneS)}</div></li>
+      <li>⏱️ Pace ${pc(pP)}<div class="note">${paceNote(w)}${pauses?` · ${pauses} long pause${pauses>1?"s":""} (sounds unsure), −8 each`:""}</div></li></ul>
+      <div class="muted" style="font-size:12px;margin-top:6px">What an American heard:</div><div class="bx" style="background:var(--card);border:1px solid var(--line)">${heardHtml}</div>
+    </div>`;
+  }
+
+  const total = num(r.score);
+  const formula = spoken ? `Total ${total}% = half word choice (${num(r.words)}%) + half voice (${num(r.voice)}%).` : typed ? "Typed answer: total is the word choice score." : "Repeat-after-model: total is the voice score.";
+  reasons.sort((a,b)=>b[0]-a[0]);
+  const top = `<h4>Why ${total}%</h4><div class="muted" style="font-size:12px">${formula}</div>
+    ${reasons.length?`<ol class="reasons">${reasons.map(x=>`<li>${x[1]}</li>`).join("")}</ol>`:`<div style="font-size:13px;margin-top:4px">Nothing marked wrong. ✅</div>`}`;
+  const shown = `<div class="sec"><h4>What the page showed them next</h4>
+    <div class="bx good"><b>✅ Sounds natural:</b> ${d.natural.map(n=>`"${esc(n)}"`).join("<br>")}</div>
+    <div class="bx" style="background:var(--brand-soft)"><b>💡 Why:</b> ${esc(d.tip)}</div></div>`;
+  return `<div class="why">${top}${out}${shown}</div>`;
+}
+function missedChecks(rs){
+  const m={};
+  rs.forEach(r=>{ const d=DBY[String(r.drill||"").replace(/ \(repeat\)$/,"")]; if(!d||!/spoken|typed/i.test(r.type||"")) return;
+    grade(d,r.heard).checks.forEach(c=>{ if(!c[1]) m[c[0]]=(m[c[0]]||0)+1; }); });
+  return Object.entries(m).sort((a,b)=>b[1]-a[1]);
+}
 
 async function load(){
   const key = getKey();
@@ -147,6 +910,7 @@ function render(){
     const hard = counts(rs.flatMap(r => String(r.hard||"").split(",").map(s=>s.trim()).filter(Boolean))).slice(0,8);
     const drillAvg = {}; rs.filter(r=>r.type!=="Quiz").forEach(r => { (drillAvg[r.drill]=drillAvg[r.drill]||[]).push(r.score); });
     const weak = Object.entries(drillAvg).map(([d,s])=>[d,avg(s)]).filter(x=>x[1]!=null).sort((a,b)=>a[1]-b[1]).slice(0,3);
+    const missChk = missedChecks(rs).slice(0,3);
     const last = rs[rs.length-1];
     const firstHalf = avg(rs.slice(0, Math.floor(rs.length/2)).map(r=>r.score)), secondHalf = avg(rs.slice(Math.floor(rs.length/2)).map(r=>r.score));
     const trend = (rs.length>=6 && firstHalf!=null && secondHalf!=null) ? (secondHalf-firstHalf>=5 ? `<span style="color:var(--good)">▲ improving</span>` : firstHalf-secondHalf>=5 ? `<span style="color:var(--bad)">▼ slipping</span>` : `<span class="muted">→ steady</span>`) : "";
@@ -166,20 +930,22 @@ function render(){
       </div>
       ${fixes.length?`<div><div class="lbl">Keeps saying</div><ul class="list">${fixes.map(f=>`<li>${esc(f[0])} <span class="muted">×${f[1]}</span></li>`).join("")}</ul></div>`:""}
       ${hard.length?`<div><div class="lbl">Words Americans can't understand</div><div class="chips">${hard.map(h=>`<span class="chip">${esc(h[0])}${h[1]>1?" ×"+h[1]:""}</span>`).join("")}</div></div>`:""}
+      ${missChk.length?`<div><div class="lbl">Marked wrong most often</div><ul class="list">${missChk.map(m=>`<li>❌ ${esc(m[0])} <span class="muted">×${m[1]}</span></li>`).join("")}</ul></div>`:""}
       ${weak.length?`<div><div class="lbl">Weakest drills</div><div class="chips">${weak.map(w=>`<span class="chip n">${esc(w[0])} · ${w[1]}%</span>`).join("")}</div></div>`:""}
       <button class="btn" data-open="${id}">${isOpen?"Hide answers":"See answers & recordings"}</button>
       <div class="detail ${isOpen?"":"hide"}" id="${id}">
         <table><thead><tr><th>When</th><th>Drill</th><th>Score</th><th>What they said</th><th></th></tr></thead><tbody>
-        ${rs.slice().reverse().slice(0,40).map(r=>`<tr>
+        ${rs.slice().reverse().slice(0,40).map(r=>{ const wk=n+"|"+r.at, wo=openWhy.has(wk); return `<tr>
           <td class="muted">${fmt(+r.at)}</td>
           <td>${esc(r.drill)}<div class="muted">${esc(r.type)}</div></td>
-          <td><b style="color:${col(num(r.score))}">${num(r.score)==null?"–":r.score+"%"}</b></td>
+          <td><b style="color:${col(num(r.score))}">${num(r.score)==null?"–":r.score+"%"}</b><br><button class="btn whybtn" data-why="${esc(wk)}">${wo?"Hide":"Why?"}</button></td>
           <td>${esc(r.heard)}${r.fix?`<div class="muted" style="color:var(--warn)">${esc(r.fix)}</div>`:""}</td>
-          <td>${r.rec?`<a class="listen" href="${esc(r.rec)}" target="_blank" rel="noopener">▶ Listen</a>`:""}</td></tr>`).join("")}
+          <td>${r.rec?`<a class="listen" href="${esc(r.rec)}" target="_blank" rel="noopener">▶ Listen</a>`:""}</td></tr>${wo?`<tr class="wrow"><td colspan="5">${why(r)}</td></tr>`:""}`; }).join("")}
         </tbody></table>
       </div>
     </div>`;
   }).join("");
+  document.querySelectorAll("[data-why]").forEach(b => b.onclick = () => { const k=b.dataset.why; if(openWhy.has(k)) openWhy.delete(k); else openWhy.add(k); render(); });
   document.querySelectorAll("[data-open]").forEach(b => b.onclick = () => {
     const id=b.dataset.open; if(open.has(id)) open.delete(id); else open.add(id); render();
     const el=$(id); if(el && !el.classList.contains("hide")) el.closest(".csr").scrollIntoView({behavior:"smooth", block:"start"});
